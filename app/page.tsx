@@ -2,8 +2,10 @@
 
 import Beams from "@/components/Beams";
 import { useGSAP } from "@gsap/react";
+import { IconArrowNarrowRight } from "@tabler/icons-react";
 import gsap from "gsap";
 import Link from "next/link";
+import StackIcon from "tech-stack-icons";
 import { useRef } from "react";
 
 export default function Home() {
@@ -78,15 +80,21 @@ export default function Home() {
             technologies. I'm seeking an internship where I can contribute,
             learn from experienced developers, and improve my practical skills.
           </p>
-          <p>Go ahead an start exploring. Thanks!</p>
+          <p>
+            It truly means a lot that you took the time to be here. Thank you.
+          </p>
         </div>
         <div
           id="work-box"
-          className="bg-black flex-1 border border-neutral-700 rounded-lg p-3"
+          className="bg-black flex-1 border border-neutral-700 rounded-lg p-3 flex flex-col"
         >
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-teal-200 to-teal-500 bg-clip-text text-transparent">
+          <h1 className="text-5xl leading-normal font-bold bg-gradient-to-r from-teal-200 to-teal-500 bg-clip-text text-transparent">
             Want to explore my Works ?
           </h1>
+          <p className="text-neutral-400 mt-3 text-justify pr-6">
+            A collection of my experiments, projects, and ideas built with
+            modern technologies. From web apps to creative coding.
+          </p>
           <div
             ref={workButton}
             onMouseMove={(e) => {
@@ -108,11 +116,23 @@ export default function Home() {
                 ease: "power2.out",
               });
             }}
-            className="bg-amber-500 w-fit p-4 mt-6"
+            className="bg-amber-500 w-fit p-4 mt-6 "
           >
-            <Link className="text-2xl" href={"/projects"}>
-              Click Here
+            <Link
+              className="text-2xl flex items-center gap-4"
+              href={"/projects"}
+            >
+              Explore projects <IconArrowNarrowRight size={32} />
             </Link>
+          </div>
+          <div className="flex gap-6 mt-10 justify-between px-6">
+            <StackIcon name="react" className="w-16" variant="dark" />
+            <StackIcon name="nextjs2" className="w-16" variant="dark" />
+            <StackIcon name="prisma" className="w-16" variant="dark" />
+            <StackIcon name="js" className="w-16" variant="dark" />
+            <StackIcon name="gsap" className="w-16" variant="dark" />
+            <StackIcon name="tailwindcss" className="w-16" variant="dark" />
+            <StackIcon name="github" className="w-16" variant="dark" />
           </div>
         </div>
       </div>
