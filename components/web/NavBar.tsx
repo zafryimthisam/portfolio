@@ -1,7 +1,11 @@
 "use client";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
-import { IconBriefcaseFilled, IconHomeFilled } from "@tabler/icons-react";
+import {
+  IconBriefcaseFilled,
+  IconHomeFilled,
+  IconSettingsFilled,
+} from "@tabler/icons-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -32,6 +36,11 @@ export default function NavBar() {
           <Link href={"/projects"} className={linkStyle("/projects")}>
             <IconBriefcaseFilled size={26} />
             <span>Projects</span>
+          </Link>
+
+          <Link href={"/tools"} className={linkStyle("/tools")}>
+            <IconSettingsFilled size={26} />
+            <span>Tools</span>
           </Link>
         </div>
         <div className="relative">
