@@ -72,7 +72,7 @@ export default function NavBar() {
       <div
         ref={navRef}
         className={`
-          fixed top-0 left-0 h-screen w-72 bg-black text-white border-r border-neutral-700 p-4 z-50
+          fixed top-0 left-0 h-dvh w-72 bg-black text-white border-r border-neutral-700 p-4 z-50
           transition-transform duration-300 ease-in-out
           ${isOpen ? "translate-x-0" : "-translate-x-full"}
           md:relative md:h-auto md:w-full md:translate-x-0 md:border-r-0 md:border-b md:z-auto
