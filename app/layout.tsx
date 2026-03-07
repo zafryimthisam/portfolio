@@ -23,7 +23,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning className="font-mono">
-      <body className="min-h-dvh flex flex-col">
+      <body className="min-h-dvh flex md:flex-col flex-col ">
         <TooltipProvider>
           <NavBar />
           <main className="flex-1 flex flex-col">{children}</main>

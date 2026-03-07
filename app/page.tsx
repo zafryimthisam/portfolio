@@ -22,26 +22,21 @@ export default function Home() {
   });
 
   return (
-    <div className="bg-neutral-950 font-mono text-white flex-1 p-5 flex flex-row gap-4 overflow-hidden">
+    <div className="flex-col p-3 gap-4 bg-neutral-950 font-mono text-white flex-1 md:p-5 flex md:flex-row md:gap-4 overflow-hidden">
       <div
         id="play-box"
-        className="bg-black w-200 border border-neutral-700 rounded-lg p-3"
+        className="bg-black md:w-230 border border-neutral-700 rounded-lg p-3"
       >
-        <h1 className="text-5xl font-bold mb-6 bg-gradient-to-r from-amber-200 to-yellow-500 bg-clip-text text-transparent">
+        <h1 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-amber-200 to-yellow-500 bg-clip-text text-transparent">
           Create. Code. Solve
         </h1>
-        <h2 className="text-2xl text-zinc-300 mb-6 ">
+        <h2 className="text-lg md:text-2xl text-zinc-300 mb-6 ">
           From Simple Ideas, to powerful solutions
         </h2>
 
         <div
-          className="flex justify-center items-center mx-auto"
-          style={{
-            width: "80%",
-            height: "auto",
-            aspectRatio: "1 / 1",
-            position: "relative",
-          }}
+          className="flex justify-center items-center mx-auto md:w-[80%] w-full relative"
+          style={{ aspectRatio: "1 / 1" }}
         >
           <Beams
             beamWidth={2}
@@ -58,29 +53,31 @@ export default function Home() {
           The above animated component is from React Bits.
         </p>
       </div>
-      <div className="flex flex-col gap-4 flex-1">
+      <div className="flex md:flex-col flex-col gap-4 flex-1">
         <div
           id="readme-box"
           className="bg-black flex-1 border border-neutral-700 rounded-lg p-3"
         >
-          <h1 className="text-5xl mb-6 font-bold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent tracking-widest">
+          <h1 className="text-4xl md:text-5xl mb-6 font-bold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent tracking-widest">
             README.md
           </h1>
-          <p className="text-zinc-300 mb-4 pr-6 text-justify">
+          <p className="text-sm md:text-base text-zinc-300 mb-4 md:pr-6 text-justify">
             The first thing we all learned about to write was My-Self. But you
             know I am still struggling to write even 100 words about me 😂.
             Instead of writing an essay, I came up with an idea to build this
-            website so you all can get to know about me !
+            website so you all can get to know about me!
           </p>
-          <h2 className="text-xl mb-2">For the love of technical people</h2>
-          <p className="text-zinc-300 mb-6 text-justify pr-6">
+          <h2 className="text-lg md:text-xl mb-2">
+            For the love of technical people
+          </h2>
+          <p className="text-sm md:text-base text-zinc-300 mb-6 text-justify md:pr-6">
             I'm a Computer Science undergraduate at SLIIT City Campus with
             hands-on experience in building full-stack web applications. I enjoy
             turning ideas into working systems and continuously learning modern
             technologies. I'm seeking an internship where I can contribute,
             learn from experienced developers, and improve my practical skills.
           </p>
-          <p>
+          <p className="text-sm md:text-base">
             It truly means a lot that you took the time to be here. Thank you.
           </p>
         </div>
@@ -88,10 +85,10 @@ export default function Home() {
           id="work-box"
           className="bg-black flex-1 border border-neutral-700 rounded-lg p-3 flex flex-col"
         >
-          <h1 className="text-5xl leading-normal font-bold bg-gradient-to-r from-teal-200 to-teal-500 bg-clip-text text-transparent">
+          <h1 className="text-4xl md:text-5xl leading-normal font-bold bg-gradient-to-r from-teal-200 to-teal-500 bg-clip-text text-transparent">
             Want to explore my Works ?
           </h1>
-          <p className="text-neutral-400 mt-3 text-justify pr-6">
+          <p className="text-neutral-400 mt-3 text-justify md:pr-6">
             A collection of my experiments, projects, and ideas built with
             modern technologies. From web apps to creative coding.
           </p>
@@ -116,23 +113,27 @@ export default function Home() {
                 ease: "power2.out",
               });
             }}
-            className="bg-amber-500 w-fit p-4 mt-6 "
+            className="bg-amber-500 w-fit px-2 md:p-4 mt-6 "
           >
             <Link
-              className="text-2xl flex items-center gap-4"
+              className="text-lg md:text-2xl flex items-center gap-4"
               href={"/projects"}
             >
               Explore projects <IconArrowNarrowRight size={32} />
             </Link>
           </div>
-          <div className="flex gap-6 mt-10 justify-between px-6">
-            <StackIcon name="react" className="w-16" variant="dark" />
-            <StackIcon name="nextjs2" className="w-16" variant="dark" />
-            <StackIcon name="prisma" className="w-16" variant="dark" />
-            <StackIcon name="js" className="w-16" variant="dark" />
-            <StackIcon name="gsap" className="w-16" variant="dark" />
-            <StackIcon name="tailwindcss" className="w-16" variant="dark" />
-            <StackIcon name="github" className="w-16" variant="dark" />
+          <div className="flex flex-wrap gap-6 md:gap-14 mt-10 justify-center">
+            <StackIcon name="react" className="w-7 md:w-16" variant="dark" />
+            <StackIcon name="nextjs2" className="w-7 md:w-16" variant="dark" />
+            <StackIcon name="prisma" className="w-7 md:w-16" variant="dark" />
+            <StackIcon name="js" className="w-7 md:w-16" variant="dark" />
+            <StackIcon name="gsap" className="w-7 md:w-16" variant="dark" />
+            <StackIcon
+              name="tailwindcss"
+              className="w-10 md:w-16"
+              variant="dark"
+            />
+            <StackIcon name="github" className="w-10 md:w-16" variant="dark" />
           </div>
         </div>
       </div>
