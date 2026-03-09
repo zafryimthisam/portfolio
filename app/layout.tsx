@@ -1,11 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Poppins, Geist } from "next/font/google";
+import { Poppins } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NavBar from "@/components/web/NavBar";
-import { cn } from "@/lib/utils";
-
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const poppins = Poppins({
   weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
@@ -25,7 +22,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={cn("font-mono", "font-sans", geist.variable)}>
+    <html lang="en" suppressHydrationWarning className="font-mono">
       <body className="min-h-dvh flex md:flex-col flex-col ">
         <TooltipProvider>
           <NavBar />
