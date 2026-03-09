@@ -107,9 +107,9 @@ export default function NavBar() {
               <IconHomeFilled size={26} />
               <span>Home</span>
             </Link>
-            <Link href="/projects" className={linkStyle("/projects")}>
+            <Link href="/works" className={linkStyle("/works")}>
               <IconBriefcaseFilled size={26} />
-              <span>Projects</span>
+              <span>Works</span>
             </Link>
             <Link href="/tools" className={linkStyle("/tools")}>
               <IconSettingsFilled size={26} />

@@ -117,9 +117,9 @@ export default function Home() {
           >
             <Link
               className="text-lg md:text-2xl flex items-center gap-4"
-              href={"/projects"}
+              href={"/works"}
             >
-              Explore projects <IconArrowNarrowRight size={32} />
+              Explore works <IconArrowNarrowRight size={32} />
             </Link>
           </div>
           <div className="flex flex-wrap gap-6 md:gap-12 mt-10 justify-center">
