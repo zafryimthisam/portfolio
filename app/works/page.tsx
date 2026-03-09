@@ -10,9 +10,9 @@ export default function WorksPage() {
         </h1>
       </div>
 
-      <div className="bg-black border border-neutral-700 rounded-lg p-3 w-[50%] mt-10">
+      <div className="bg-black border border-neutral-700 rounded-lg py-4 px-6 w-[50%] mt-4">
         <h2 className="text-2xl font-bold flex">
-          Create secure authentication with{" "}
+          Create secure authentication with
           <span className="mx-3">
             <svg
               width="32"
@@ -58,8 +58,10 @@ export default function WorksPage() {
           </span>{" "}
           Better-Auth framework
         </h2>
-        <p className="text-zinc-400">Try creating an Account</p>
-        <div>
+        <p className="text-zinc-400 text-center mt-2">
+          Try creating an Account. Your information is secured with us
+        </p>
+        <div className="w-full max-w-md mx-auto mt-3">
           <SignUpComponent />
         </div>
       </div>

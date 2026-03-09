@@ -3,6 +3,7 @@ import "./globals.css";
 import { Poppins } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NavBar from "@/components/web/NavBar";
+import { Toaster } from "sonner";
 
 const poppins = Poppins({
   weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
@@ -22,11 +23,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className="font-mono">
+    <html lang="en" suppressHydrationWarning className="font-mono dark">
       <body className="min-h-dvh flex md:flex-col flex-col ">
         <TooltipProvider>
           <NavBar />
-          <main className="flex-1 flex flex-col">{children}</main>
+          <main className="flex-1 flex flex-col">
+            {children}
+            <Toaster />
+          </main>
         </TooltipProvider>
       </body>
     </html>
