@@ -65,7 +65,7 @@ export default function SignUpComponent() {
   }
   return (
     <div>
-      <Card>
+      <Card className="p-3 md:p-6">
         <CardHeader>
           <CardTitle>Sign Up</CardTitle>
           <CardDescription>
@@ -91,12 +91,14 @@ export default function SignUpComponent() {
             </Button>
           </div>
 
-          <p className="text-center">OR</p>
-          <CardDescription>Create an account to get started</CardDescription>
+          <p className="text-center text-xs md:text-base">OR</p>
+          <CardDescription className="text-center">
+            Create an account to get started
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)}>
-            <FieldGroup className="flex gap-y-3">
+            <FieldGroup className="flex gap-y-2 md:gap-y-3">
               <Controller
                 name="name"
                 control={control}
@@ -104,6 +106,7 @@ export default function SignUpComponent() {
                   <Field>
                     <FieldLabel>Full Name</FieldLabel>
                     <Input
+                      className="h-8 text-xs md:h-10 md:text-sm"
                       aria-invalid={fieldState.invalid}
                       placeholder="Zafry Imthisam"
                       {...field}
@@ -121,6 +124,7 @@ export default function SignUpComponent() {
                   <Field>
                     <FieldLabel>Email</FieldLabel>
                     <Input
+                      className="h-8 text-xs md:h-10 md:text-sm"
                       aria-invalid={fieldState.invalid}
                       placeholder="example@gmail.com"
                       {...field}
@@ -138,6 +142,7 @@ export default function SignUpComponent() {
                   <Field>
                     <FieldLabel>Password</FieldLabel>
                     <Input
+                      className="h-8 text-xs md:h-10 md:text-sm"
                       type="password"
                       aria-invalid={fieldState.invalid}
                       placeholder="************"
@@ -156,6 +161,7 @@ export default function SignUpComponent() {
                   <Field>
                     <FieldLabel>Confirm Password</FieldLabel>
                     <Input
+                      className="h-8 text-xs md:h-10 md:text-sm"
                       type="password"
                       aria-invalid={fieldState.invalid}
                       placeholder="************"

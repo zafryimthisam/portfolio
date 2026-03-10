@@ -11,6 +11,9 @@ importers:
       '@base-ui/react':
         specifier: ^1.2.0
         version: 1.2.0(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@boxicons/react':
+        specifier: ^1.0.3
+        version: 1.0.3(react@19.2.3)
       '@gsap/react':
         specifier: ^2.1.2
         version: 2.1.2(gsap@3.14.2)(react@19.2.3)
@@ -380,6 +383,11 @@ packages:
 
   '@better-fetch/fetch@1.1.21':
     resolution: {integrity: sha512-/ImESw0sskqlVR94jB+5+Pxjf+xBwDZF/N5+y2/q4EqD7IARUTSpPfIo8uf39SYpCxyOCtbyYpUrZ3F/k0zT4A==}
+
+  '@boxicons/react@1.0.3':
+    resolution: {integrity: sha512-NASJNbk4X6Xi24CIa/Anx7KhMH1KPiBuaq0RJq3HJiFg65Ct9mhIB6j/a/Ciz/ZOTGaGzisWYmbU4jdKKK/YYA==}
+    peerDependencies:
+      react: '>=16.8.0'
 
   '@chevrotain/cst-dts-gen@10.5.0':
     resolution: {integrity: sha512-lhmC/FyqQ2o7pGK4Om+hzuDrm9rhFYIJ/AXoQBeongmn870Xeb0L6oGEiuR8nohFNL5sMaQEJWCxr1oIVIVXrw==}
@@ -5429,6 +5437,10 @@ snapshots:
   '@better-auth/utils@0.3.1': {}
 
   '@better-fetch/fetch@1.1.21': {}
+
+  '@boxicons/react@1.0.3(react@19.2.3)':
+    dependencies:
+      react: 19.2.3
 
   '@chevrotain/cst-dts-gen@10.5.0':
     dependencies:
