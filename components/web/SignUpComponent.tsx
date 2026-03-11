@@ -51,17 +51,25 @@ export default function SignUpComponent() {
   }
 
   async function handleLoginWithGoogle() {
-    await authClient.signIn.social({
-      provider: "google",
-      callbackURL: "/works",
-    });
+    try {
+      await authClient.signIn.social({
+        provider: "google",
+        callbackURL: "/works",
+      });
+    } catch (error: any) {
+      toast.error("Something went wrong");
+    }
   }
 
   async function handleLoginWithGithub() {
-    await authClient.signIn.social({
-      provider: "github",
-      callbackURL: "/works",
-    });
+    try {
+      await authClient.signIn.social({
+        provider: "github",
+        callbackURL: "/works",
+      });
+    } catch (error) {
+      toast.error("Something went wrong");
+    }
   }
   return (
     <div>
