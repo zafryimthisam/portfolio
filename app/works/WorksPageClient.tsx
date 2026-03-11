@@ -132,27 +132,6 @@ export default function WorksPageClient({
         id="signup-box"
         className="bg-black border border-neutral-700 py-4 px-6 w-fit md:w-[50%] mt-4"
       >
-        <div className="w-full max-w-md mx-auto mt-3">
-          {user ? (
-            <div className="flex flex-col items-center gap-3 py-4">
-              <p className="text-sm text-zinc-400">
-                Signed in as{" "}
-                <span className="text-white font-medium">{user.email}</span>
-              </p>
-              <form action={signOut}>
-                <Button
-                  type="submit"
-                  variant="outline"
-                  className="cursor-pointer"
-                >
-                  Sign Out
-                </Button>
-              </form>
-            </div>
-          ) : (
-            <SignUpComponent />
-          )}
-        </div>
         <div className="flex flex-col md:flex-row gap-1">
           <div>
             <h2 className=" md:text-2xl font-bold text-center">
@@ -171,6 +150,23 @@ export default function WorksPageClient({
           Try creating an Account. Your information is secured with us
         </p>
         <div className="w-full max-w-md mx-auto mt-3">
+          {user && (
+            <div className="flex flex-col items-center gap-3 py-4">
+              <p className="text-sm text-zinc-400">
+                Signed in as{" "}
+                <span className="text-white font-medium">{user.email}</span>
+              </p>
+              <form action={signOut}>
+                <Button
+                  type="submit"
+                  variant="outline"
+                  className="cursor-pointer"
+                >
+                  Sign Out
+                </Button>
+              </form>
+            </div>
+          )}
           <SignUpComponent />
         </div>
       </div>
