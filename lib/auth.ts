@@ -21,4 +21,8 @@ export const auth = betterAuth({
     enabled: true,
   },
   plugins: [nextCookies()],
+  trustedOrigins: [
+    "http://localhost:3000",
+    "https://portfolio-lovat-gamma-20.vercel.app",
+  ],
 });
