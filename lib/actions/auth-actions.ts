@@ -1,7 +1,9 @@
 "use server";
 
+import { headers } from "next/headers";
 import { auth } from "../auth";
 import { signUpType } from "../schemas/auth-schema";
+import { redirect } from "next/navigation";
 
 export const signUp = async (values: signUpType) => {
   const { name, email, password } = values;
@@ -15,4 +17,11 @@ export const signUp = async (values: signUpType) => {
   });
 
   return result;
+};
+
+export const signOut = async () => {
+  await auth.api.signOut({
+    headers: await headers(),
+  });
+  redirect("/home");
 };
