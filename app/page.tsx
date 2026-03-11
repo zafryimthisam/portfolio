@@ -27,7 +27,7 @@ export default function Home() {
         id="play-box"
         className="bg-black md:w-200 border border-neutral-700 rounded-lg p-3"
       >
-        <h1 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-amber-200 to-yellow-500 bg-clip-text text-transparent">
+        <h1 className="text-3xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-amber-200 to-yellow-500 bg-clip-text text-transparent">
           Create. Code. Solve
         </h1>
         <h2 className="text-lg md:text-2xl text-zinc-300 mb-6 ">
@@ -122,7 +122,7 @@ export default function Home() {
               Explore works <IconArrowNarrowRight size={32} />
             </Link>
           </div>
-          <div className="flex flex-wrap gap-6 md:gap-12 mt-10 justify-center">
+          <div className="flex flex-wrap gap-5 md:gap-12 mt-10 justify-center">
             <StackIcon name="react" className="w-7 md:w-16" variant="dark" />
             <StackIcon name="nextjs2" className="w-7 md:w-16" variant="dark" />
             <StackIcon name="prisma" className="w-7 md:w-16" variant="dark" />

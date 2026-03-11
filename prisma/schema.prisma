@@ -1,4 +1,3 @@
-
 generator client {
   provider               = "prisma-client"
   output                 = "../lib/generated/prisma"
@@ -72,4 +71,11 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+model Comment {
+  name      String   @id @unique
+  comment   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
