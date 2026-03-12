@@ -122,11 +122,16 @@ export default function Home() {
               Explore works <IconArrowNarrowRight size={32} />
             </Link>
           </div>
-          <div className="flex flex-wrap gap-5 md:gap-12 mt-10 justify-center">
+          <div className="flex flex-wrap gap-3 md:gap-8 mt-10 justify-center">
             <StackIcon name="react" className="w-7 md:w-16" variant="dark" />
             <StackIcon name="nextjs2" className="w-7 md:w-16" variant="dark" />
             <StackIcon name="prisma" className="w-7 md:w-16" variant="dark" />
             <StackIcon name="js" className="w-7 md:w-16" variant="dark" />
+            <StackIcon
+              name="typescript"
+              className="w-7 md:w-16"
+              variant="dark"
+            />
             <StackIcon name="gsap" className="w-7 md:w-16" variant="dark" />
             <StackIcon
               name="tailwindcss"
