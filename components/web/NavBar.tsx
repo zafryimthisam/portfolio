@@ -7,6 +7,7 @@ import {
   IconSettingsFilled,
   IconMenu2,
   IconX,
+  IconMessageFilled,
 } from "@tabler/icons-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
@@ -114,6 +115,10 @@ export default function NavBar() {
             <Link href="/tools" className={linkStyle("/tools")}>
               <IconSettingsFilled size={26} />
               <span>Tools</span>
+            </Link>
+            <Link href="/contact" className={linkStyle("/contact")}>
+              <IconMessageFilled size={26} />
+              <span>Contact</span>
             </Link>
           </div>
 
