@@ -19,6 +19,7 @@ import { Spinner } from "../ui/spinner";
 
 import StackIcon from "tech-stack-icons";
 import { authClient } from "@/lib/auth-client";
+import { useMutation } from "@tanstack/react-query";
 
 export default function SignUpComponent() {
   const {
@@ -50,7 +51,7 @@ export default function SignUpComponent() {
     }
   }
 
-  async function handleLoginWithGoogle() {
+  /* async function handleLoginWithGoogle() {
     try {
       await authClient.signIn.social({
         provider: "google",
@@ -59,9 +60,38 @@ export default function SignUpComponent() {
     } catch (error: any) {
       toast.error("Something went wrong");
     }
-  }
+  } */
 
-  async function handleLoginWithGithub() {
+  const googleLoginMutation = useMutation({
+    mutationFn: async () => {
+      return authClient.signIn.social({
+        provider: "google",
+        callbackURL: "/works",
+      });
+    },
+    onError: () => {
+      toast.error("Something went wrong");
+    },
+    onSuccess: () => {
+      toast.success("Redirecting to your works page...");
+    },
+  });
+
+  const githubLoginMutation = useMutation({
+    mutationFn: async () => {
+      return authClient.signIn.social({
+        provider: "github",
+        callbackURL: "/works",
+      });
+    },
+    onError: () => {
+      toast.error("Something went wrong");
+    },
+    onSuccess: () => {
+      toast.success("Redirecting to your works page...");
+    },
+  });
+  /* async function handleLoginWithGithub() {
     try {
       await authClient.signIn.social({
         provider: "github",
@@ -70,7 +100,7 @@ export default function SignUpComponent() {
     } catch (error) {
       toast.error("Something went wrong");
     }
-  }
+  } */
   return (
     <div>
       <Card className="p-3 md:p-6">
@@ -81,21 +111,31 @@ export default function SignUpComponent() {
           </CardDescription>
           <div className="flex flex-col gap-2">
             <Button
-              onClick={handleLoginWithGoogle}
+              onClick={() => googleLoginMutation.mutate()}
+              disabled={githubLoginMutation.isPending}
               type="button"
               className="cursor-pointer flex items-center justify-center gap-2 rounded-none bg-white text-sm text-black px-3 py-2 w-full"
             >
               <StackIcon name="google" className="w-5 h-5" variant="dark" />
-              <span>Sign Up with Google</span>
+              <span>
+                {googleLoginMutation.isPending
+                  ? "Loading..."
+                  : "Sign Up with Google"}
+              </span>
             </Button>
 
             <Button
-              onClick={handleLoginWithGithub}
+              onClick={() => githubLoginMutation.mutate()}
+              disabled={githubLoginMutation.isPending}
               type="button"
               className="cursor-pointer flex items-center justify-center gap-2 rounded-none bg-white text-sm text-black px-3 py-2 w-full"
             >
               <StackIcon name="github" className="w-5 h-5" />
-              <span>Sign Up with GitHub</span>
+              <span>
+                {githubLoginMutation.isPending
+                  ? "Loading..."
+                  : "Sign Up with GitHub"}
+              </span>
             </Button>
           </div>
 
