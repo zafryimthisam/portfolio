@@ -91,9 +91,9 @@ type OverlayAction = DragOverlayAction | TransformOverlayAction;
 const STORAGE_KEY = "collage-maker-images-v3";
 const IK_URL_ENDPOINT = "https://ik.imagekit.io/zafry";
 
-const DEFAULT_MARGIN = 18;
-const DEFAULT_CONTAINER_PADDING = 24;
-const DEFAULT_BORDER_RADIUS = 12;
+const DEFAULT_MARGIN = 0;
+const DEFAULT_CONTAINER_PADDING = 0;
+const DEFAULT_BORDER_RADIUS = 0;
 const DEFAULT_BG_COLOR = "#09090b";
 
 const MIN_OVERLAY_WIDTH = 6;
@@ -289,7 +289,7 @@ export default function CollageMaker() {
   );
   const [borderRadius, setBorderRadius] = useState(DEFAULT_BORDER_RADIUS);
   const [exportFormat, setExportFormat] = useState<ExportFormat>("png");
-  const [maintainAspectRatio, setMaintainAspectRatio] = useState(true);
+  const [maintainAspectRatio, setMaintainAspectRatio] = useState(false);
   const [bgColor, setBgColor] = useState(DEFAULT_BG_COLOR);
   const [progress, setProgress] = useState(0);
   const [overlayProgress, setOverlayProgress] = useState(0);
@@ -654,7 +654,7 @@ export default function CollageMaker() {
     setMargin(DEFAULT_MARGIN);
     setContainerPadding(DEFAULT_CONTAINER_PADDING);
     setBorderRadius(DEFAULT_BORDER_RADIUS);
-    setMaintainAspectRatio(true);
+    setMaintainAspectRatio(false);
     setBgColor(DEFAULT_BG_COLOR);
     setExportFormat("png");
     setLayout("a4");
@@ -795,6 +795,21 @@ export default function CollageMaker() {
 
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
   };
+  async function waitForImagesToLoad(element: HTMLElement) {
+    const images = Array.from(
+      element.querySelectorAll("img"),
+    ) as HTMLImageElement[];
+
+    await Promise.all(
+      images.map((img) => {
+        if (img.complete && img.naturalWidth !== 0) return Promise.resolve();
+        return new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = () => resolve(); // still resolve so export continues
+        });
+      }),
+    );
+  }
 
   const downloadCollage = async () => {
     if (images.length === 0 || !previewRef.current) {
@@ -806,6 +821,9 @@ export default function CollageMaker() {
 
     try {
       const element = previewRef.current;
+
+      // Wait for all images to load
+      await waitForImagesToLoad(element);
 
       const exportOptions = {
         quality: exportFormat === "png" ? 1 : 0.95,
@@ -829,11 +847,10 @@ export default function CollageMaker() {
         type: blob.type,
       });
 
-      // Only compress if file is > 3MB
       if (file.size > 3 * 1024 * 1024) {
         file = await imageCompression(file, {
           maxSizeMB: 3,
-          maxWidthOrHeight: preset.width, // keep full layout width
+          maxWidthOrHeight: preset.width,
           useWebWorker: true,
           initialQuality: 0.9,
           fileType: "image/jpeg" as const,
