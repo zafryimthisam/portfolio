@@ -802,15 +802,15 @@ export default function CollageMaker() {
       return;
     }
 
-    setStatus("Generating optimized download...");
+    setStatus("Generating high-resolution download...");
 
     try {
       const element = previewRef.current;
 
       const exportOptions = {
-        quality: exportFormat === "png" ? 1 : 0.85,
+        quality: exportFormat === "png" ? 1 : 0.95,
         backgroundColor: bgColor,
-        pixelRatio: 1.5,
+        pixelRatio: Math.max(2, window.devicePixelRatio || 2),
         filter: (node: Node) => {
           if (!(node instanceof HTMLElement)) return true;
           if (node.dataset.exportIgnore === "true") return false;
@@ -829,23 +829,25 @@ export default function CollageMaker() {
         type: blob.type,
       });
 
-      // Final compression for download
-      file = await imageCompression(file, {
-        maxSizeMB: 2,
-        maxWidthOrHeight: 1920,
-        useWebWorker: true,
-        initialQuality: 0.85,
-        fileType: "image/jpeg" as const,
-      });
+      // Only compress if file is > 3MB
+      if (file.size > 3 * 1024 * 1024) {
+        file = await imageCompression(file, {
+          maxSizeMB: 3,
+          maxWidthOrHeight: preset.width, // keep full layout width
+          useWebWorker: true,
+          initialQuality: 0.9,
+          fileType: "image/jpeg" as const,
+        });
+      }
 
-      const compressedUrl = URL.createObjectURL(file);
+      const url = URL.createObjectURL(file);
       const a = document.createElement("a");
-      a.href = compressedUrl;
+      a.href = url;
       a.download = `collage-${layout}.${exportFormat}`;
       a.click();
-      URL.revokeObjectURL(compressedUrl);
+      URL.revokeObjectURL(url);
 
-      setStatus("Downloaded optimized collage 🚀");
+      setStatus("Downloaded high-resolution collage 🚀");
     } catch (err) {
       console.error(err);
       setStatus("Download failed. Please try again.");
