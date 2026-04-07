@@ -112,7 +112,7 @@ export default function ImageBackgroundRemover() {
       <div className="mx-auto max-w-7xl space-y-4">
         <div className="border border-neutral-800 bg-black/80 p-4 md:p-6 shadow-2xl shadow-black/40">
           <h1 className="text-center text-3xl md:text-5xl font-bold leading-tight bg-gradient-to-r from-amber-200 to-yellow-500 bg-clip-text text-transparent">
-            Remove Image Background
+            Remove Image Background for Free
           </h1>
           <p className="mt-3 text-center text-sm md:text-base text-neutral-400">
             Upload an image and get a clean cutout with transparent background
@@ -173,7 +173,7 @@ export default function ImageBackgroundRemover() {
                 onChange={(e) =>
                   setOutputFormat(e.target.value as OutputFormat)
                 }
-                className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-3 text-white outline-none"
+                className="w-full rounded-xl mb-2 border border-neutral-800 bg-neutral-900 px-3 py-3 text-white outline-none"
               >
                 <option value="webp">WebP (smaller file size)</option>
                 <option value="png">PNG (transparent support)</option>
