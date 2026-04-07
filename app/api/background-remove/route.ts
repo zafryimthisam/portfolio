@@ -1,6 +1,6 @@
 import { rembg } from "@remove-background-ai/rembg.js";
 import { NextRequest } from "next/server";
-import fs from "fs";
+import { readFileSync } from "fs";
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,8 +40,13 @@ export async function POST(request: NextRequest) {
     const { outputImagePath, cleanup } = await rembg({
       apiKey,
       inputImage: buffer,
+      onUploadProgress: () => {}, // Required by type but optional in docs
+      onDownloadProgress: () => {}, // Required by type but optional in docs
       options: {
         format: format as "webp" | "png",
+        // w and h are required by type but optional in API - using large values to avoid resizing
+        w: 10000,
+        h: 10000,
       },
     });
 
@@ -50,7 +55,7 @@ export async function POST(request: NextRequest) {
       throw new Error("Background removal failed: no output path returned");
     }
 
-    const outputBuffer = fs.readFileSync(outputImagePath);
+    const outputBuffer = readFileSync(outputImagePath);
 
     // Clean up the temp file
     if (cleanup) {
