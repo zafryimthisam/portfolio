@@ -92,36 +92,69 @@ export default function Home() {
             A collection of my experiments, projects, and ideas built with
             modern technologies. From web apps to creative coding.
           </p>
-          <div
-            ref={workButton}
-            onMouseMove={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const mouseX = e.clientX - rect.left - rect.width / 2;
-              const mouseY = e.clientY - rect.top - rect.height / 2;
-              gsap.to(e.currentTarget, {
-                x: mouseX * 0.3,
-                y: mouseY * 0.3,
-                duration: 0.2,
-                ease: "power2.out",
-              });
-            }}
-            onMouseLeave={(e) => {
-              gsap.to(e.currentTarget, {
-                x: 0,
-                y: 0,
-                duration: 0.3,
-                ease: "power2.out",
-              });
-            }}
-            className="bg-amber-500 w-fit px-2 md:p-4 mt-6 "
-          >
-            <Link
-              className="text-lg md:text-2xl flex items-center gap-4"
-              href={"/works"}
+          <div className="flex md-gap-12 gap-2">
+            <div
+              ref={workButton}
+              onMouseMove={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left - rect.width / 2;
+                const mouseY = e.clientY - rect.top - rect.height / 2;
+                gsap.to(e.currentTarget, {
+                  x: mouseX * 0.3,
+                  y: mouseY * 0.3,
+                  duration: 0.2,
+                  ease: "power2.out",
+                });
+              }}
+              onMouseLeave={(e) => {
+                gsap.to(e.currentTarget, {
+                  x: 0,
+                  y: 0,
+                  duration: 0.3,
+                  ease: "power2.out",
+                });
+              }}
+              className="bg-amber-500 w-fit px-2 md:p-4 mt-6 "
             >
-              Explore works <IconArrowNarrowRight size={32} />
-            </Link>
+              <Link
+                className="text-lg md:text-2xl flex items-center gap-4"
+                href={"/works"}
+              >
+                Explore works <IconArrowNarrowRight size={32} />
+              </Link>
+            </div>
+            <div
+              ref={workButton}
+              onMouseMove={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left - rect.width / 2;
+                const mouseY = e.clientY - rect.top - rect.height / 2;
+                gsap.to(e.currentTarget, {
+                  x: mouseX * 0.3,
+                  y: mouseY * 0.3,
+                  duration: 0.2,
+                  ease: "power2.out",
+                });
+              }}
+              onMouseLeave={(e) => {
+                gsap.to(e.currentTarget, {
+                  x: 0,
+                  y: 0,
+                  duration: 0.3,
+                  ease: "power2.out",
+                });
+              }}
+              className="bg-blue-600 w-fit px-2 md:p-4 mt-6 "
+            >
+              <Link
+                className="text-lg md:text-2xl flex items-center gap-4"
+                href={"/tools"}
+              >
+                Explore Tools <IconArrowNarrowRight size={32} />
+              </Link>
+            </div>
           </div>
+
           <div className="flex flex-wrap gap-3 md:gap-8 mt-10 justify-center">
             <StackIcon name="react" className="w-7 md:w-16" variant="dark" />
             <StackIcon name="nextjs2" className="w-7 md:w-16" variant="dark" />
