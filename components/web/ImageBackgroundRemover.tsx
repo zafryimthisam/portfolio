@@ -1,8 +1,7 @@
 "use client";
-
-import { useState, useRef, type DragEvent as ReactDragEvent } from "react";
-
-type OutputFormat = "webp" | "png";
+import { useState, useRef, useCallback } from "react";
+import * as imgly from "@imgly/background-removal";
+import type { Config } from "@imgly/background-removal";
 
 export default function ImageBackgroundRemover() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -13,8 +12,7 @@ export default function ImageBackgroundRemover() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState("Ready to upload.");
-  const [outputFormat, setOutputFormat] = useState<OutputFormat>("webp");
-
+  const [progress, setProgress] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (file: File) => {
@@ -22,22 +20,19 @@ export default function ImageBackgroundRemover() {
       setError("Please select a valid image file.");
       return;
     }
-
     if (file.size > 50 * 1024 * 1024) {
-      // 50MB limit from API
       setError("File size must be less than 50MB.");
       return;
     }
-
     setUploadedFile(file);
     setOriginalImageUrl(URL.createObjectURL(file));
     setProcessedImageUrl(null);
     setError(null);
+    setProgress(null);
     setStatus("Image uploaded. Ready to remove background.");
   };
 
   const handleDrop = (e: React.DragEvent<HTMLElement>) => {
-    // or specifically HTMLLabelElement
     e.preventDefault();
     const file = e.dataTransfer.files[0];
     if (file) handleFileSelect(file);
@@ -50,29 +45,33 @@ export default function ImageBackgroundRemover() {
 
   const removeBackground = async () => {
     if (!uploadedFile) return;
-
     setLoading(true);
     setError(null);
-    setStatus("Processing image...");
+    setProgress(null);
+    setStatus("Initialising model...");
 
     try {
-      const formData = new FormData();
-      formData.append("image", uploadedFile);
-      formData.append("format", outputFormat);
+      const config: Config = {
+        progress: (key: string, current: number, total: number) => {
+          if (total > 0) {
+            const pct = Math.round((current / total) * 100);
+            const label = key.includes("fetch")
+              ? "Downloading model"
+              : "Processing";
+            setProgress(`${label}: ${pct}%`);
+          }
+        },
+      };
 
-      const response = await fetch("/api/background-remove", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to process image");
-      }
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
+      setStatus("Removing background...");
+      // imglyRemoveBackground accepts a Blob/File directly
+      const resultBlob: Blob = await imgly.removeBackground(
+        uploadedFile,
+        config,
+      );
+      const url = URL.createObjectURL(resultBlob);
       setProcessedImageUrl(url);
+      setProgress(null);
       setStatus("Background removed successfully!");
     } catch (err) {
       console.error(err);
@@ -80,6 +79,7 @@ export default function ImageBackgroundRemover() {
         err instanceof Error ? err.message : "Failed to remove background",
       );
       setStatus("Processing failed.");
+      setProgress(null);
     } finally {
       setLoading(false);
     }
@@ -87,10 +87,9 @@ export default function ImageBackgroundRemover() {
 
   const downloadImage = () => {
     if (!processedImageUrl) return;
-
     const a = document.createElement("a");
     a.href = processedImageUrl;
-    a.download = `background-removed.${outputFormat}`;
+    a.download = "background-removed.png";
     a.click();
   };
 
@@ -101,6 +100,7 @@ export default function ImageBackgroundRemover() {
     setOriginalImageUrl(null);
     setProcessedImageUrl(null);
     setError(null);
+    setProgress(null);
     setStatus("Ready to upload.");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -115,7 +115,8 @@ export default function ImageBackgroundRemover() {
             Remove Image Background for Free
           </h1>
           <p className="mt-3 text-center text-sm md:text-base text-neutral-400">
-            Upload an image and get a clean cutout with transparent background
+            Upload an image and get a clean cutout with transparent background —
+            processed entirely in your browser
           </p>
         </div>
 
@@ -166,20 +167,6 @@ export default function ImageBackgroundRemover() {
               </div>
             </label>
 
-            <label className="space-y-2 text-sm text-neutral-300">
-              <span>Output Format</span>
-              <select
-                value={outputFormat}
-                onChange={(e) =>
-                  setOutputFormat(e.target.value as OutputFormat)
-                }
-                className="w-full rounded-xl mb-2 border border-neutral-800 bg-neutral-900 px-3 py-3 text-white outline-none"
-              >
-                <option value="webp">WebP (smaller file size)</option>
-                <option value="png">PNG (transparent support)</option>
-              </select>
-            </label>
-
             <button
               type="button"
               onClick={removeBackground}
@@ -191,7 +178,11 @@ export default function ImageBackgroundRemover() {
 
             <div className="space-y-2 rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4">
               <p className="text-xs text-neutral-400">{status}</p>
+              {progress && <p className="text-xs text-amber-400">{progress}</p>}
               {error && <p className="text-xs text-red-400">{error}</p>}
+              <p className="text-[10px] text-neutral-600">
+                ✦ Runs 100% in your browser — images never leave your device
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -250,7 +241,17 @@ export default function ImageBackgroundRemover() {
                         Background Removed{" "}
                         {processedImageUrl ? "✓" : "(Processing...)"}
                       </h3>
-                      <div className="border border-neutral-700 rounded-lg overflow-hidden bg-neutral-900">
+                      {/* Checkerboard background to show transparency */}
+                      <div
+                        className="border border-neutral-700 rounded-lg overflow-hidden"
+                        style={{
+                          backgroundImage:
+                            "linear-gradient(45deg,#333 25%,transparent 25%),linear-gradient(-45deg,#333 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#333 75%),linear-gradient(-45deg,transparent 75%,#333 75%)",
+                          backgroundSize: "20px 20px",
+                          backgroundPosition: "0 0,0 10px,10px -10px,-10px 0",
+                          backgroundColor: "#1a1a1a",
+                        }}
+                      >
                         {processedImageUrl ? (
                           <img
                             src={processedImageUrl}
@@ -260,7 +261,7 @@ export default function ImageBackgroundRemover() {
                         ) : (
                           <div className="flex items-center justify-center h-96 text-neutral-500">
                             {loading
-                              ? "Processing..."
+                              ? "Processing in browser..."
                               : "Click 'Remove Background' to process"}
                           </div>
                         )}
