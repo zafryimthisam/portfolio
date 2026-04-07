@@ -174,8 +174,14 @@ export default function ImageBackgroundRemover() {
   const subjectImgRef = useRef<HTMLImageElement | null>(null);
   const bgImgRef = useRef<HTMLImageElement | null>(null);
 
+  const [originalDimensions, setOriginalDimensions] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
+
   const getCanvasDimensions = useCallback(() => {
     if (selectedDocSize) {
+      // Use selected doc size ratio for crop mode
       const { widthMm, heightMm } = selectedDocSize;
       if (widthMm >= heightMm) {
         return {
@@ -188,8 +194,25 @@ export default function ImageBackgroundRemover() {
         w: Math.round((CANVAS_PREVIEW_SIZE * widthMm) / heightMm),
       };
     }
+
+    // No crop selected: match original image aspect ratio for consistent previews
+    if (originalDimensions) {
+      const { width, height } = originalDimensions;
+      if (width >= height) {
+        return {
+          w: CANVAS_PREVIEW_SIZE,
+          h: Math.round((CANVAS_PREVIEW_SIZE * height) / width),
+        };
+      }
+      return {
+        h: CANVAS_PREVIEW_SIZE,
+        w: Math.round((CANVAS_PREVIEW_SIZE * width) / height),
+      };
+    }
+
+    // Fallback to square only if we have no dimensions yet
     return { w: CANVAS_PREVIEW_SIZE, h: CANVAS_PREVIEW_SIZE };
-  }, [selectedDocSize]);
+  }, [selectedDocSize, originalDimensions]);
 
   const drawCanvas = useCallback(() => {
     const canvas = previewCanvasRef.current;
@@ -252,6 +275,21 @@ export default function ImageBackgroundRemover() {
     };
     img.src = processedImageUrl;
   }, [processedImageUrl, drawCanvas]);
+
+  useEffect(() => {
+    if (!originalImageUrl) {
+      setOriginalDimensions(null);
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      setOriginalDimensions({
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+      });
+    };
+    img.src = originalImageUrl;
+  }, [originalImageUrl]);
 
   useEffect(() => {
     if (!bgImageUrl) {
@@ -427,53 +465,84 @@ export default function ImageBackgroundRemover() {
   const downloadImage = () => {
     if (!previewCanvasRef.current) return;
 
-    const { w, h } = getCanvasDimensions();
+    // Determine export dimensions based on crop selection
+    let exportW: number, exportH: number;
+    let exportScale: number;
+
+    if (selectedDocSize) {
+      // Crop mode: use preview dimensions with 2x upscale for quality
+      const { w, h } = getCanvasDimensions();
+      exportW = w;
+      exportH = h;
+      exportScale = 2;
+    } else if (originalDimensions) {
+      // No crop: export at original image resolution (1:1)
+      exportW = originalDimensions.width;
+      exportH = originalDimensions.height;
+      exportScale = 1;
+    } else {
+      // Fallback
+      const { w, h } = getCanvasDimensions();
+      exportW = w;
+      exportH = h;
+      exportScale = 2;
+    }
+
     const exportCanvas = document.createElement("canvas");
-    const scale = 2;
-    exportCanvas.width = w * scale;
-    exportCanvas.height = h * scale;
+    exportCanvas.width = exportW * exportScale;
+    exportCanvas.height = exportH * exportScale;
 
     const ctx = exportCanvas.getContext("2d");
     if (!ctx) return;
 
-    ctx.scale(scale, scale);
-    ctx.clearRect(0, 0, w, h);
+    ctx.scale(exportScale, exportScale);
+    ctx.clearRect(0, 0, exportW, exportH);
 
+    // Background layer (same logic, but using exportW/exportH)
     if (bgMode === "color") {
       ctx.fillStyle = bgColor;
-      ctx.fillRect(0, 0, w, h);
+      ctx.fillRect(0, 0, exportW, exportH);
     } else if (bgMode === "image" && bgImgRef.current) {
       const img = bgImgRef.current;
       const { x, y, scale: s } = bgTransform;
+      // Scale background position/size proportionally for export resolution
+      const previewDims = getCanvasDimensions();
+      const xScale = exportW / previewDims.w;
+      const yScale = exportH / previewDims.h;
       const drawW = img.naturalWidth * s;
       const drawH = img.naturalHeight * s;
       ctx.drawImage(
         img,
-        w / 2 + x - drawW / 2,
-        h / 2 + y - drawH / 2,
+        exportW / 2 + x * xScale - drawW / 2,
+        exportH / 2 + y * yScale - drawH / 2,
         drawW,
         drawH,
       );
     } else if (bgMode === "transparent") {
-      const sq = 16;
-      for (let row = 0; row * sq < h; row++) {
-        for (let col = 0; col * sq < w; col++) {
-          ctx.fillStyle = (row + col) % 2 === 0 ? "#d0d0d0" : "#f8f8f8";
-          ctx.fillRect(col * sq, row * sq, sq, sq);
-        }
-      }
+      // Checkerboard pattern (optional for PNG transparency - can skip for export)
+      // Usually you'd skip this for actual export since transparency is preserved
     }
 
+    // Subject layer
     if (subjectImgRef.current) {
       const img = subjectImgRef.current;
       const { x, y, scale: s } = subjectTransform;
-      const fitScale = Math.min(w / img.naturalWidth, h / img.naturalHeight);
+      const previewDims = getCanvasDimensions();
+      const xScale = exportW / previewDims.w;
+      const yScale = exportH / previewDims.h;
+
+      // Calculate fit scale based on export dimensions
+      const fitScale = Math.min(
+        exportW / img.naturalWidth,
+        exportH / img.naturalHeight,
+      );
       const drawW = img.naturalWidth * fitScale * s;
       const drawH = img.naturalHeight * fitScale * s;
+
       ctx.drawImage(
         img,
-        w / 2 + x - drawW / 2,
-        h / 2 + y - drawH / 2,
+        exportW / 2 + x * xScale - drawW / 2,
+        exportH / 2 + y * yScale - drawH / 2,
         drawW,
         drawH,
       );
@@ -525,13 +594,346 @@ export default function ImageBackgroundRemover() {
       ? "Your image is uploaded. Click Remove Background to create the editable photo."
       : "Start by uploading a photo from your device.";
 
+  const EditSection = () => (
+    <div className="space-y-3">
+      <div className="grid grid-cols-4 gap-1 mb-3">
+        {(["bg", "subject", "crop", "export"] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={`rounded-lg px-2 py-2 text-xs font-semibold transition capitalize ${
+              activeTab === tab
+                ? "bg-amber-500 text-black"
+                : "bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800"
+            }`}
+          >
+            {tab === "bg"
+              ? "BG"
+              : tab === "subject"
+                ? "Subject"
+                : tab === "crop"
+                  ? "Crop"
+                  : "Export"}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "bg" && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-3 gap-2">
+            {(["transparent", "color", "image"] as BgMode[]).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setBgMode(m)}
+                className={`rounded-lg py-2 text-xs font-semibold capitalize transition ${
+                  bgMode === m
+                    ? "bg-amber-500 text-black"
+                    : "bg-neutral-900 border border-neutral-700 text-neutral-300 hover:border-amber-500/50"
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+
+          {bgMode === "color" && (
+            <div className="space-y-2">
+              <label className="text-xs text-neutral-400">
+                Background Color
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={bgColor}
+                  onChange={(e) => setBgColor(e.target.value)}
+                  className="w-12 h-10 rounded-lg cursor-pointer border-0 bg-transparent"
+                />
+                <input
+                  type="text"
+                  value={bgColor}
+                  onChange={(e) => setBgColor(e.target.value)}
+                  className="flex-1 rounded-lg bg-neutral-900 border border-neutral-700 px-3 py-2 text-xs text-white outline-none focus:border-amber-500"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {PRESET_BG_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setBgColor(c)}
+                    className={`w-7 h-7 rounded-md border-2 transition ${
+                      bgColor === c ? "border-amber-400" : "border-neutral-700"
+                    }`}
+                    style={{ backgroundColor: c }}
+                    aria-label={`Set background color to ${c}`}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {bgMode === "image" && (
+            <div className="space-y-3">
+              <label
+                htmlFor="bg-image-upload"
+                className="block rounded-xl border border-dashed border-neutral-700 bg-neutral-900/70 p-4 text-center text-xs text-neutral-400 hover:border-amber-400/70 transition cursor-pointer"
+              >
+                <input
+                  id="bg-image-upload"
+                  ref={bgFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleBgImageSelect}
+                />
+                {bgImageUrl
+                  ? "Background image loaded. Tap to change it."
+                  : "Upload a background image"}
+              </label>
+
+              {bgImageUrl && (
+                <>
+                  <label className="text-xs text-neutral-400">
+                    BG Scale: {bgTransform.scale.toFixed(2)}x
+                  </label>
+                  <input
+                    type="range"
+                    min={0.1}
+                    max={5}
+                    step={0.01}
+                    value={bgTransform.scale}
+                    onChange={(e) =>
+                      setBgTransform((t) => ({
+                        ...t,
+                        scale: parseFloat(e.target.value),
+                      }))
+                    }
+                    className="w-full accent-amber-500"
+                  />
+                  <p className="text-[10px] text-neutral-500">
+                    Use the drag controls below to move the background.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setBgTransform({ x: 0, y: 0, scale: 1 })}
+                    className="text-xs text-neutral-500 hover:text-amber-400 transition"
+                  >
+                    Reset background position
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === "subject" && (
+        <div className="space-y-3">
+          <div className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-3">
+            <p className="text-xs text-neutral-400 mb-2">Drag mode</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setDragTarget("subject")}
+                className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                  dragTarget === "subject"
+                    ? "bg-amber-500 text-black"
+                    : "bg-neutral-950 border border-neutral-700 text-neutral-300 hover:border-amber-500/50"
+                }`}
+              >
+                Move Subject
+              </button>
+              <button
+                type="button"
+                onClick={() => setDragTarget("bg")}
+                className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                  dragTarget === "bg"
+                    ? "bg-amber-500 text-black"
+                    : "bg-neutral-950 border border-neutral-700 text-neutral-300 hover:border-amber-500/50"
+                }`}
+              >
+                Move Background
+              </button>
+            </div>
+            <p className="mt-2 text-[10px] text-neutral-500">
+              Tap a mode first, then drag on the preview. This works with mouse,
+              touch, and pen.
+            </p>
+          </div>
+
+          <label className="text-xs text-neutral-400">
+            Subject Scale: {subjectTransform.scale.toFixed(2)}x
+          </label>
+          <input
+            type="range"
+            min={0.1}
+            max={3}
+            step={0.01}
+            value={subjectTransform.scale}
+            onChange={(e) =>
+              setSubjectTransform((t) => ({
+                ...t,
+                scale: parseFloat(e.target.value),
+              }))
+            }
+            className="w-full accent-amber-500"
+          />
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-neutral-400">
+                X offset: {subjectTransform.x}px
+              </label>
+              <input
+                type="range"
+                min={-200}
+                max={200}
+                step={1}
+                value={subjectTransform.x}
+                onChange={(e) =>
+                  setSubjectTransform((t) => ({
+                    ...t,
+                    x: parseInt(e.target.value, 10),
+                  }))
+                }
+                className="w-full accent-amber-500"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-neutral-400">
+                Y offset: {subjectTransform.y}px
+              </label>
+              <input
+                type="range"
+                min={-200}
+                max={200}
+                step={1}
+                value={subjectTransform.y}
+                onChange={(e) =>
+                  setSubjectTransform((t) => ({
+                    ...t,
+                    y: parseInt(e.target.value, 10),
+                  }))
+                }
+                className="w-full accent-amber-500"
+              />
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setSubjectTransform({ x: 0, y: 0, scale: 1 })}
+            className="text-xs text-neutral-500 hover:text-amber-400 transition"
+          >
+            Reset subject position
+          </button>
+        </div>
+      )}
+
+      {activeTab === "crop" && (
+        <div className="space-y-2">
+          <p className="text-xs text-neutral-400 mb-2">
+            Choose a document size. The preview will update to match the
+            selected ratio.
+          </p>
+          <button
+            type="button"
+            onClick={() => setSelectedDocSize(null)}
+            className={`w-full rounded-lg px-3 py-2 text-xs font-semibold text-left transition ${
+              !selectedDocSize
+                ? "bg-amber-500 text-black"
+                : "bg-neutral-900 border border-neutral-700 text-neutral-300 hover:border-amber-500/50"
+            }`}
+          >
+            No crop (free)
+          </button>
+          {DOC_SIZES.map((size) => (
+            <button
+              key={size.label}
+              type="button"
+              onClick={() => setSelectedDocSize(size)}
+              className={`w-full rounded-lg px-3 py-2 text-xs font-semibold text-left transition flex justify-between items-center ${
+                selectedDocSize?.label === size.label
+                  ? "bg-amber-500 text-black"
+                  : "bg-neutral-900 border border-neutral-700 text-neutral-300 hover:border-amber-500/50"
+              }`}
+            >
+              <span>{size.label}</span>
+              <span className="opacity-70">
+                {size.widthMm}×{size.heightMm}mm
+              </span>
+            </button>
+          ))}
+          {selectedDocSize && (
+            <p className="text-[10px] text-neutral-500 pt-1">
+              Preview ratio: {selectedDocSize.widthIn}" ×{" "}
+              {selectedDocSize.heightIn}" ({selectedDocSize.ratio})
+            </p>
+          )}
+        </div>
+      )}
+
+      {activeTab === "export" && (
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-neutral-400 block mb-1">
+              Output Format
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {(
+                ["image/png", "image/jpeg", "image/webp"] as OutputFormat[]
+              ).map((fmt) => (
+                <button
+                  key={fmt}
+                  type="button"
+                  onClick={() => setOutputFormat(fmt)}
+                  className={`rounded-lg py-2 text-xs font-semibold transition ${
+                    outputFormat === fmt
+                      ? "bg-amber-500 text-black"
+                      : "bg-neutral-900 border border-neutral-700 text-neutral-300 hover:border-amber-500/50"
+                  }`}
+                >
+                  {FORMAT_EXT[fmt].toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {outputFormat !== "image/png" && (
+            <div>
+              <label className="text-xs text-neutral-400 block mb-1">
+                Quality: {Math.round(outputQuality * 100)}%
+              </label>
+              <input
+                type="range"
+                min={0.1}
+                max={1}
+                step={0.01}
+                value={outputQuality}
+                onChange={(e) => setOutputQuality(parseFloat(e.target.value))}
+                className="w-full accent-amber-500"
+              />
+            </div>
+          )}
+
+          {outputFormat === "image/png" && (
+            <p className="text-[10px] text-neutral-500">
+              PNG is lossless, so no quality slider is needed.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
   return (
     <div className="min-h-screen bg-neutral-950 text-white font-mono p-3 md:p-5">
       <div className="mx-auto max-w-7xl space-y-4">
         {/* Header */}
         <div className="border border-neutral-800 bg-black/80 p-4 md:p-6 shadow-2xl shadow-black/40">
           <h1 className="text-center text-3xl md:text-5xl font-bold leading-tight bg-gradient-to-r from-amber-200 to-yellow-500 bg-clip-text text-transparent">
-            Remove Background for Free
+            Free Image Background Remover
           </h1>
           <p className="mt-3 text-center text-sm md:text-base text-neutral-400">
             Remove the background, add a color or image, crop to a document
@@ -569,7 +971,7 @@ export default function ImageBackgroundRemover() {
                     Choose a file or drag it here
                   </span>
                   {hasFile ? (
-                    <span className="text-xs text-amber-400 truncate block">
+                    <span className="text-xs text-amber-400 break-all block">
                       {uploadedFile!.name} •{" "}
                       {(uploadedFile!.size / (1024 * 1024)).toFixed(1)} MB
                     </span>
@@ -607,361 +1009,18 @@ export default function ImageBackgroundRemover() {
               </div>
             </div>
 
-            {/* Editor Tabs */}
+            {/* Editor Tabs - desktop only */}
             {hasResult && (
-              <div>
+              <div className="hidden md:block">
                 <h2 className="text-lg font-semibold text-white mb-2">
                   3. Edit
                 </h2>
-
-                <div className="grid grid-cols-4 gap-1 mb-3">
-                  {(["bg", "subject", "crop", "export"] as const).map((tab) => (
-                    <button
-                      key={tab}
-                      type="button"
-                      onClick={() => setActiveTab(tab)}
-                      className={`rounded-lg px-2 py-2 text-xs font-semibold transition capitalize ${
-                        activeTab === tab
-                          ? "bg-amber-500 text-black"
-                          : "bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800"
-                      }`}
-                    >
-                      {tab === "bg"
-                        ? "BG"
-                        : tab === "subject"
-                          ? "Subject"
-                          : tab === "crop"
-                            ? "Crop"
-                            : "Export"}
-                    </button>
-                  ))}
-                </div>
-
-                {/* BG Tab */}
-                {activeTab === "bg" && (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-3 gap-2">
-                      {(["transparent", "color", "image"] as BgMode[]).map(
-                        (m) => (
-                          <button
-                            key={m}
-                            type="button"
-                            onClick={() => setBgMode(m)}
-                            className={`rounded-lg py-2 text-xs font-semibold capitalize transition ${
-                              bgMode === m
-                                ? "bg-amber-500 text-black"
-                                : "bg-neutral-900 border border-neutral-700 text-neutral-300 hover:border-amber-500/50"
-                            }`}
-                          >
-                            {m}
-                          </button>
-                        ),
-                      )}
-                    </div>
-
-                    {bgMode === "color" && (
-                      <div className="space-y-2">
-                        <label className="text-xs text-neutral-400">
-                          Background Color
-                        </label>
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="color"
-                            value={bgColor}
-                            onChange={(e) => setBgColor(e.target.value)}
-                            className="w-12 h-10 rounded-lg cursor-pointer border-0 bg-transparent"
-                          />
-                          <input
-                            type="text"
-                            value={bgColor}
-                            onChange={(e) => setBgColor(e.target.value)}
-                            className="flex-1 rounded-lg bg-neutral-900 border border-neutral-700 px-3 py-2 text-xs text-white outline-none focus:border-amber-500"
-                          />
-                        </div>
-                        <div className="flex flex-wrap gap-2 pt-1">
-                          {PRESET_BG_COLORS.map((c) => (
-                            <button
-                              key={c}
-                              type="button"
-                              onClick={() => setBgColor(c)}
-                              className={`w-7 h-7 rounded-md border-2 transition ${bgColor === c ? "border-amber-400" : "border-neutral-700"}`}
-                              style={{ backgroundColor: c }}
-                              aria-label={`Set background color to ${c}`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {bgMode === "image" && (
-                      <div className="space-y-3">
-                        <label
-                          htmlFor="bg-image-upload"
-                          className="block rounded-xl border border-dashed border-neutral-700 bg-neutral-900/70 p-4 text-center text-xs text-neutral-400 hover:border-amber-400/70 transition cursor-pointer"
-                        >
-                          <input
-                            id="bg-image-upload"
-                            ref={bgFileInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={handleBgImageSelect}
-                          />
-                          {bgImageUrl
-                            ? "Background image loaded. Tap to change it."
-                            : "Upload a background image"}
-                        </label>
-                        {bgImageUrl && (
-                          <>
-                            <label className="text-xs text-neutral-400">
-                              BG Scale: {bgTransform.scale.toFixed(2)}x
-                            </label>
-                            <input
-                              type="range"
-                              min={0.1}
-                              max={5}
-                              step={0.01}
-                              value={bgTransform.scale}
-                              onChange={(e) =>
-                                setBgTransform((t) => ({
-                                  ...t,
-                                  scale: parseFloat(e.target.value),
-                                }))
-                              }
-                              className="w-full accent-amber-500"
-                            />
-                            <p className="text-[10px] text-neutral-500">
-                              Use the drag controls below to move the
-                              background.
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setBgTransform({ x: 0, y: 0, scale: 1 })
-                              }
-                              className="text-xs text-neutral-500 hover:text-amber-400 transition"
-                            >
-                              Reset background position
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Subject Tab */}
-                {activeTab === "subject" && (
-                  <div className="space-y-3">
-                    <div className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-3">
-                      <p className="text-xs text-neutral-400 mb-2">Drag mode</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setDragTarget("subject")}
-                          className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
-                            dragTarget === "subject"
-                              ? "bg-amber-500 text-black"
-                              : "bg-neutral-950 border border-neutral-700 text-neutral-300 hover:border-amber-500/50"
-                          }`}
-                        >
-                          Move Subject
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDragTarget("bg")}
-                          className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
-                            dragTarget === "bg"
-                              ? "bg-amber-500 text-black"
-                              : "bg-neutral-950 border border-neutral-700 text-neutral-300 hover:border-amber-500/50"
-                          }`}
-                        >
-                          Move Background
-                        </button>
-                      </div>
-                      <p className="mt-2 text-[10px] text-neutral-500">
-                        Tap a mode first, then drag on the preview. This works
-                        with mouse, touch, and pen.
-                      </p>
-                    </div>
-
-                    <label className="text-xs text-neutral-400">
-                      Subject Scale: {subjectTransform.scale.toFixed(2)}x
-                    </label>
-                    <input
-                      type="range"
-                      min={0.1}
-                      max={3}
-                      step={0.01}
-                      value={subjectTransform.scale}
-                      onChange={(e) =>
-                        setSubjectTransform((t) => ({
-                          ...t,
-                          scale: parseFloat(e.target.value),
-                        }))
-                      }
-                      className="w-full accent-amber-500"
-                    />
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-xs text-neutral-400">
-                          X offset: {subjectTransform.x}px
-                        </label>
-                        <input
-                          type="range"
-                          min={-200}
-                          max={200}
-                          step={1}
-                          value={subjectTransform.x}
-                          onChange={(e) =>
-                            setSubjectTransform((t) => ({
-                              ...t,
-                              x: parseInt(e.target.value, 10),
-                            }))
-                          }
-                          className="w-full accent-amber-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-neutral-400">
-                          Y offset: {subjectTransform.y}px
-                        </label>
-                        <input
-                          type="range"
-                          min={-200}
-                          max={200}
-                          step={1}
-                          value={subjectTransform.y}
-                          onChange={(e) =>
-                            setSubjectTransform((t) => ({
-                              ...t,
-                              y: parseInt(e.target.value, 10),
-                            }))
-                          }
-                          className="w-full accent-amber-500"
-                        />
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setSubjectTransform({ x: 0, y: 0, scale: 1 })
-                      }
-                      className="text-xs text-neutral-500 hover:text-amber-400 transition"
-                    >
-                      Reset subject position
-                    </button>
-                  </div>
-                )}
-
-                {/* Crop Tab */}
-                {activeTab === "crop" && (
-                  <div className="space-y-2">
-                    <p className="text-xs text-neutral-400 mb-2">
-                      Choose a document size. The preview will update to match
-                      the selected ratio.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedDocSize(null)}
-                      className={`w-full rounded-lg px-3 py-2 text-xs font-semibold text-left transition ${
-                        !selectedDocSize
-                          ? "bg-amber-500 text-black"
-                          : "bg-neutral-900 border border-neutral-700 text-neutral-300 hover:border-amber-500/50"
-                      }`}
-                    >
-                      No crop (free)
-                    </button>
-                    {DOC_SIZES.map((size) => (
-                      <button
-                        key={size.label}
-                        type="button"
-                        onClick={() => setSelectedDocSize(size)}
-                        className={`w-full rounded-lg px-3 py-2 text-xs font-semibold text-left transition flex justify-between items-center ${
-                          selectedDocSize?.label === size.label
-                            ? "bg-amber-500 text-black"
-                            : "bg-neutral-900 border border-neutral-700 text-neutral-300 hover:border-amber-500/50"
-                        }`}
-                      >
-                        <span>{size.label}</span>
-                        <span className="opacity-70">
-                          {size.widthMm}×{size.heightMm}mm
-                        </span>
-                      </button>
-                    ))}
-                    {selectedDocSize && (
-                      <p className="text-[10px] text-neutral-500 pt-1">
-                        Preview ratio: {selectedDocSize.widthIn}" ×{" "}
-                        {selectedDocSize.heightIn}" ({selectedDocSize.ratio})
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* Export Tab */}
-                {activeTab === "export" && (
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-xs text-neutral-400 block mb-1">
-                        Output Format
-                      </label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {(
-                          [
-                            "image/png",
-                            "image/jpeg",
-                            "image/webp",
-                          ] as OutputFormat[]
-                        ).map((fmt) => (
-                          <button
-                            key={fmt}
-                            type="button"
-                            onClick={() => setOutputFormat(fmt)}
-                            className={`rounded-lg py-2 text-xs font-semibold transition ${
-                              outputFormat === fmt
-                                ? "bg-amber-500 text-black"
-                                : "bg-neutral-900 border border-neutral-700 text-neutral-300 hover:border-amber-500/50"
-                            }`}
-                          >
-                            {FORMAT_EXT[fmt].toUpperCase()}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {outputFormat !== "image/png" && (
-                      <div>
-                        <label className="text-xs text-neutral-400 block mb-1">
-                          Quality: {Math.round(outputQuality * 100)}%
-                        </label>
-                        <input
-                          type="range"
-                          min={0.1}
-                          max={1}
-                          step={0.01}
-                          value={outputQuality}
-                          onChange={(e) =>
-                            setOutputQuality(parseFloat(e.target.value))
-                          }
-                          className="w-full accent-amber-500"
-                        />
-                      </div>
-                    )}
-
-                    {outputFormat === "image/png" && (
-                      <p className="text-[10px] text-neutral-500">
-                        PNG is lossless, so no quality slider is needed.
-                      </p>
-                    )}
-                  </div>
-                )}
+                <EditSection />
               </div>
             )}
 
-            {/* Actions */}
-            <div className="grid grid-cols-2 gap-3 pt-1">
+            {/* Actions - desktop only */}
+            <div className="hidden md:grid grid-cols-2 gap-3 pt-1">
               <button
                 type="button"
                 onClick={downloadImage}
@@ -978,7 +1037,7 @@ export default function ImageBackgroundRemover() {
                 Reset
               </button>
             </div>
-            <div className="rounded-xl border border-neutral-800 bg-neutral-950/70 p-4 space-y-2">
+            <div className="hidden md:block rounded-xl border border-neutral-800 bg-neutral-950/70 p-4 space-y-2">
               <h2 className="text-base md:text-lg font-semibold text-white">
                 How to use
               </h2>
@@ -1037,15 +1096,28 @@ export default function ImageBackgroundRemover() {
                     <h3 className="text-sm font-medium text-neutral-300">
                       Original
                     </h3>
-                    <div className="border border-neutral-700 rounded-lg overflow-hidden bg-neutral-900">
+
+                    <div
+                      className="border border-neutral-700 rounded-lg overflow-hidden bg-neutral-900 flex items-center justify-center"
+                      style={{ minHeight: "300px" }}
+                    >
                       <img
                         src={originalImageUrl}
                         alt="Original"
-                        className="w-full h-auto max-h-96 object-contain"
+                        className="max-w-full max-h-96 object-contain"
+                        style={{ imageRendering: "auto" }}
                       />
                     </div>
                   </div>
-
+                  {/* Mobile Edit Controls */}
+                  {hasResult && (
+                    <div className="md:hidden mb-4 rounded-xl border border-neutral-800 bg-neutral-950/70 p-4">
+                      <h2 className="text-lg font-semibold text-white mb-2">
+                        3. Edit
+                      </h2>
+                      <EditSection />
+                    </div>
+                  )}
                   {/* Composite canvas */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
@@ -1105,12 +1177,24 @@ export default function ImageBackgroundRemover() {
                         </div>
                       )}
                     </div>
-                    {hasResult && (
-                      <p className="text-[10px] text-neutral-600 text-center">
-                        Preview: {canvasW}×{canvasH}px · Download uses 2×
-                        resolution.
-                      </p>
-                    )}
+                    {/* Mobile Actions */}
+                    <div className="mt-4 grid grid-cols-2 gap-3 md:hidden">
+                      <button
+                        type="button"
+                        onClick={downloadImage}
+                        disabled={!hasResult}
+                        className="rounded-xl border border-amber-400/50 bg-amber-500/10 px-4 py-3 font-semibold text-amber-200 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-40 text-sm"
+                      >
+                        Download
+                      </button>
+                      <button
+                        type="button"
+                        onClick={reset}
+                        className="rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 font-semibold text-neutral-200 transition hover:bg-neutral-800 text-sm"
+                      >
+                        Reset
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
