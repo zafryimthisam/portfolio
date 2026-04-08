@@ -1,13 +1,42 @@
 "use client";
-import { useState, useRef, useEffect, useCallback } from "react";
+
+import { memo, useCallback, useEffect, useRef, useState } from "react";
+import type {
+  ChangeEvent,
+  DragEvent,
+  Dispatch,
+  PointerEvent,
+  RefObject,
+  SetStateAction,
+} from "react";
 import * as imgly from "@imgly/background-removal";
 import type { Config } from "@imgly/background-removal";
+import { Slider } from "@/components/ui/slider";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type OutputFormat = "image/png" | "image/jpeg" | "image/webp";
 type BgMode = "transparent" | "color" | "image";
 type DragTarget = "subject" | "bg";
+type BlendMode =
+  | "normal"
+  | "multiply"
+  | "darken"
+  | "screen"
+  | "overlay"
+  | "soft-light"
+  | "hard-light"
+  | "color-burn"
+  | "color-dodge"
+  | "difference"
+  | "luminosity";
 
 interface Transform {
   x: number;
@@ -22,6 +51,31 @@ interface DocSize {
   heightMm: number;
   widthIn: string;
   heightIn: string;
+}
+
+type ActiveTab = "bg" | "subject" | "crop" | "export";
+
+type PointerPoint = {
+  x: number;
+  y: number;
+  pointerType: string;
+};
+
+type GestureMode = "none" | "drag" | "pinch";
+
+interface GestureState {
+  mode: GestureMode;
+  target: DragTarget;
+  primaryPointerId: number | null;
+  secondaryPointerId: number | null;
+  startX: number;
+  startY: number;
+  startTx: number;
+  startTy: number;
+  startScale: number;
+  startDistance: number;
+  startCenterX: number;
+  startCenterY: number;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -118,483 +172,101 @@ const GUIDE_TEXT = [
   },
 ];
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
-export default function ImageBackgroundRemover() {
-  // Upload & processing
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
-  const [processedImageUrl, setProcessedImageUrl] = useState<string | null>(
-    null,
-  );
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState("Ready to upload.");
-  const [progress, setProgress] = useState<string | null>(null);
-
-  // Editor state
-  const [activeTab, setActiveTab] = useState<
-    "bg" | "subject" | "crop" | "export"
-  >("bg");
-  const [bgMode, setBgMode] = useState<BgMode>("transparent");
-  const [bgColor, setBgColor] = useState("#ffffff");
-  const [bgImageUrl, setBgImageUrl] = useState<string | null>(null);
-  const [bgTransform, setBgTransform] = useState<Transform>({
-    x: 0,
-    y: 0,
-    scale: 1,
-  });
-  const [subjectTransform, setSubjectTransform] = useState<Transform>({
-    x: 0,
-    y: 0,
-    scale: 1,
-  });
-  const [selectedDocSize, setSelectedDocSize] = useState<DocSize | null>(null);
-  const [outputFormat, setOutputFormat] = useState<OutputFormat>("image/png");
-  const [outputQuality, setOutputQuality] = useState(0.92);
-
-  // Drag state
-  const [dragTarget, setDragTarget] = useState<DragTarget>("subject");
-  const isDraggingRef = useRef(false);
-  const dragStartRef = useRef<{
-    pointerId: number;
-    startX: number;
-    startY: number;
-    tx: number;
-    ty: number;
-    target: DragTarget;
-  } | null>(null);
-
-  // Refs
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const bgFileInputRef = useRef<HTMLInputElement>(null);
-  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
-
-  // Loaded image elements for canvas drawing
-  const subjectImgRef = useRef<HTMLImageElement | null>(null);
-  const bgImgRef = useRef<HTMLImageElement | null>(null);
-
-  const [originalDimensions, setOriginalDimensions] = useState<{
-    width: number;
-    height: number;
-  } | null>(null);
-
-  const getCanvasDimensions = useCallback(() => {
-    if (selectedDocSize) {
-      // Use selected doc size ratio for crop mode
-      const { widthMm, heightMm } = selectedDocSize;
-      if (widthMm >= heightMm) {
-        return {
-          w: CANVAS_PREVIEW_SIZE,
-          h: Math.round((CANVAS_PREVIEW_SIZE * heightMm) / widthMm),
-        };
-      }
-      return {
-        h: CANVAS_PREVIEW_SIZE,
-        w: Math.round((CANVAS_PREVIEW_SIZE * widthMm) / heightMm),
-      };
-    }
-
-    // No crop selected: match original image aspect ratio for consistent previews
-    if (originalDimensions) {
-      const { width, height } = originalDimensions;
-      if (width >= height) {
-        return {
-          w: CANVAS_PREVIEW_SIZE,
-          h: Math.round((CANVAS_PREVIEW_SIZE * height) / width),
-        };
-      }
-      return {
-        h: CANVAS_PREVIEW_SIZE,
-        w: Math.round((CANVAS_PREVIEW_SIZE * width) / height),
-      };
-    }
-
-    // Fallback to square only if we have no dimensions yet
-    return { w: CANVAS_PREVIEW_SIZE, h: CANVAS_PREVIEW_SIZE };
-  }, [selectedDocSize, originalDimensions]);
-
-  const drawCanvas = useCallback(() => {
-    const canvas = previewCanvasRef.current;
-    if (!canvas) return;
-
-    const { w, h } = getCanvasDimensions();
-    canvas.width = w;
-    canvas.height = h;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    ctx.clearRect(0, 0, w, h);
-
-    // Background layer
-    if (bgMode === "color") {
-      ctx.fillStyle = bgColor;
-      ctx.fillRect(0, 0, w, h);
-    } else if (bgMode === "image" && bgImgRef.current) {
-      const img = bgImgRef.current;
-      const { x, y, scale } = bgTransform;
-      const drawW = img.naturalWidth * scale;
-      const drawH = img.naturalHeight * scale;
-      const cx = w / 2 + x - drawW / 2;
-      const cy = h / 2 + y - drawH / 2;
-      ctx.drawImage(img, cx, cy, drawW, drawH);
-    } else if (bgMode === "transparent") {
-      const sq = 16;
-      for (let row = 0; row * sq < h; row++) {
-        for (let col = 0; col * sq < w; col++) {
-          ctx.fillStyle = (row + col) % 2 === 0 ? "#d0d0d0" : "#f8f8f8";
-          ctx.fillRect(col * sq, row * sq, sq, sq);
-        }
-      }
-    }
-
-    // Subject layer
-    if (subjectImgRef.current) {
-      const img = subjectImgRef.current;
-      const { x, y, scale } = subjectTransform;
-      const fitScale = Math.min(w / img.naturalWidth, h / img.naturalHeight);
-      const drawW = img.naturalWidth * fitScale * scale;
-      const drawH = img.naturalHeight * fitScale * scale;
-      const cx = w / 2 + x - drawW / 2;
-      const cy = h / 2 + y - drawH / 2;
-      ctx.drawImage(img, cx, cy, drawW, drawH);
-    }
-  }, [bgMode, bgColor, bgTransform, subjectTransform, getCanvasDimensions]);
-
-  useEffect(() => {
-    if (!processedImageUrl) {
-      subjectImgRef.current = null;
-      return;
-    }
-
-    const img = new Image();
-    img.onload = () => {
-      subjectImgRef.current = img;
-      drawCanvas();
-    };
-    img.src = processedImageUrl;
-  }, [processedImageUrl, drawCanvas]);
-
-  useEffect(() => {
-    if (!originalImageUrl) {
-      setOriginalDimensions(null);
-      return;
-    }
-    const img = new Image();
-    img.onload = () => {
-      setOriginalDimensions({
-        width: img.naturalWidth,
-        height: img.naturalHeight,
-      });
-    };
-    img.src = originalImageUrl;
-  }, [originalImageUrl]);
-
-  useEffect(() => {
-    if (!bgImageUrl) {
-      bgImgRef.current = null;
-      return;
-    }
-
-    const img = new Image();
-    img.onload = () => {
-      bgImgRef.current = img;
-      drawCanvas();
-    };
-    img.src = bgImageUrl;
-  }, [bgImageUrl, drawCanvas]);
-
-  useEffect(() => {
-    drawCanvas();
-  }, [drawCanvas]);
-
-  // ── Drag handlers: pointer events work for mouse, touch, and pen ──────────
-
-  const beginDrag = useCallback(
-    (e: React.PointerEvent<HTMLCanvasElement>) => {
-      const canvas = previewCanvasRef.current;
-      if (!canvas || !processedImageUrl) return;
-
-      const target = dragTarget;
-      const currentTransform = target === "bg" ? bgTransform : subjectTransform;
-
-      isDraggingRef.current = true;
-      dragStartRef.current = {
-        pointerId: e.pointerId,
-        startX: e.clientX,
-        startY: e.clientY,
-        tx: currentTransform.x,
-        ty: currentTransform.y,
-        target,
-      };
-
-      canvas.setPointerCapture(e.pointerId);
-    },
-    [bgTransform, subjectTransform, dragTarget, processedImageUrl],
-  );
-
-  const moveDrag = useCallback(
-    (e: React.PointerEvent<HTMLCanvasElement>) => {
-      if (!isDraggingRef.current || !dragStartRef.current) return;
-      if (dragStartRef.current.pointerId !== e.pointerId) return;
-
-      const dx = e.clientX - dragStartRef.current.startX;
-      const dy = e.clientY - dragStartRef.current.startY;
-      const target = dragStartRef.current.target;
-      const baseX = dragStartRef.current.tx;
-      const baseY = dragStartRef.current.ty;
-
-      const nextTransform = {
-        ...(target === "bg" ? bgTransform : subjectTransform),
-        x: baseX + dx,
-        y: baseY + dy,
-      };
-
-      if (target === "bg") {
-        setBgTransform(nextTransform);
-      } else {
-        setSubjectTransform(nextTransform);
-      }
-    },
-    [bgTransform, subjectTransform],
-  );
-
-  const endDrag = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (dragStartRef.current?.pointerId === e.pointerId) {
-      isDraggingRef.current = false;
-      dragStartRef.current = null;
-    }
-  }, []);
-
-  const cancelDrag = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (dragStartRef.current?.pointerId === e.pointerId) {
-      isDraggingRef.current = false;
-      dragStartRef.current = null;
-    }
-  }, []);
-
-  // ── File handling ─────────────────────────────────────────────────────────
-
-  const handleFileSelect = (file: File) => {
-    if (!file.type.startsWith("image/")) {
-      setError("Please choose a valid image file.");
-      return;
-    }
-
-    if (file.size > 50 * 1024 * 1024) {
-      setError("File size must be less than 50MB.");
-      return;
-    }
-
-    if (originalImageUrl) URL.revokeObjectURL(originalImageUrl);
-
-    setUploadedFile(file);
-    setOriginalImageUrl(URL.createObjectURL(file));
-    setProcessedImageUrl(null);
-    setSubjectTransform({ x: 0, y: 0, scale: 1 });
-    setError(null);
-    setProgress(null);
-    setStatus("Image uploaded. You can now remove the background.");
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLElement>) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) handleFileSelect(file);
-  };
-
-  const handleBgImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (bgImageUrl) URL.revokeObjectURL(bgImageUrl);
-
-    setBgImageUrl(URL.createObjectURL(file));
-    setBgMode("image");
-    setBgTransform({ x: 0, y: 0, scale: 1 });
-  };
-
-  // ── Background removal ────────────────────────────────────────────────────
-
-  const removeBackground = async () => {
-    if (!uploadedFile) return;
-
-    setLoading(true);
-    setError(null);
-    setProgress(null);
-    setStatus("Starting background removal...");
-
-    try {
-      const config: Config = {
-        output: { format: "image/png", quality: 1 },
-        progress: (key: string, current: number, total: number) => {
-          if (total > 0) {
-            const pct = Math.round((current / total) * 100);
-            setProgress(
-              `${key.includes("fetch") ? "Downloading model" : "Processing"}: ${pct}%`,
-            );
-          }
-        },
-      };
-
-      setStatus("Removing background...");
-      const resultBlob: Blob = await imgly.removeBackground(
-        uploadedFile,
-        config,
-      );
-      const url = URL.createObjectURL(resultBlob);
-
-      setProcessedImageUrl(url);
-      setProgress(null);
-      setStatus("Done. Use the edit tools below to adjust the photo.");
-    } catch (err) {
-      console.error(err);
-      setError(
-        err instanceof Error ? err.message : "Failed to remove background.",
-      );
-      setStatus("Processing failed.");
-      setProgress(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ── Download ──────────────────────────────────────────────────────────────
-
-  const downloadImage = () => {
-    if (!previewCanvasRef.current) return;
-
-    // Determine export dimensions based on crop selection
-    let exportW: number, exportH: number;
-    let exportScale: number;
-
-    if (selectedDocSize) {
-      // Crop mode: use preview dimensions with 2x upscale for quality
-      const { w, h } = getCanvasDimensions();
-      exportW = w;
-      exportH = h;
-      exportScale = 2;
-    } else if (originalDimensions) {
-      // No crop: export at original image resolution (1:1)
-      exportW = originalDimensions.width;
-      exportH = originalDimensions.height;
-      exportScale = 1;
-    } else {
-      // Fallback
-      const { w, h } = getCanvasDimensions();
-      exportW = w;
-      exportH = h;
-      exportScale = 2;
-    }
-
-    const exportCanvas = document.createElement("canvas");
-    exportCanvas.width = exportW * exportScale;
-    exportCanvas.height = exportH * exportScale;
-
-    const ctx = exportCanvas.getContext("2d");
-    if (!ctx) return;
-
-    ctx.scale(exportScale, exportScale);
-    ctx.clearRect(0, 0, exportW, exportH);
-
-    // Background layer (same logic, but using exportW/exportH)
-    if (bgMode === "color") {
-      ctx.fillStyle = bgColor;
-      ctx.fillRect(0, 0, exportW, exportH);
-    } else if (bgMode === "image" && bgImgRef.current) {
-      const img = bgImgRef.current;
-      const { x, y, scale: s } = bgTransform;
-      // Scale background position/size proportionally for export resolution
-      const previewDims = getCanvasDimensions();
-      const xScale = exportW / previewDims.w;
-      const yScale = exportH / previewDims.h;
-      const drawW = img.naturalWidth * s;
-      const drawH = img.naturalHeight * s;
-      ctx.drawImage(
-        img,
-        exportW / 2 + x * xScale - drawW / 2,
-        exportH / 2 + y * yScale - drawH / 2,
-        drawW,
-        drawH,
-      );
-    } else if (bgMode === "transparent") {
-      // Checkerboard pattern (optional for PNG transparency - can skip for export)
-      // Usually you'd skip this for actual export since transparency is preserved
-    }
-
-    // Subject layer
-    if (subjectImgRef.current) {
-      const img = subjectImgRef.current;
-      const { x, y, scale: s } = subjectTransform;
-      const previewDims = getCanvasDimensions();
-      const xScale = exportW / previewDims.w;
-      const yScale = exportH / previewDims.h;
-
-      // Calculate fit scale based on export dimensions
-      const fitScale = Math.min(
-        exportW / img.naturalWidth,
-        exportH / img.naturalHeight,
-      );
-      const drawW = img.naturalWidth * fitScale * s;
-      const drawH = img.naturalHeight * fitScale * s;
-
-      ctx.drawImage(
-        img,
-        exportW / 2 + x * xScale - drawW / 2,
-        exportH / 2 + y * yScale - drawH / 2,
-        drawW,
-        drawH,
-      );
-    }
-
-    const mimeType = outputFormat;
-    const quality = mimeType === "image/png" ? undefined : outputQuality;
-    const dataUrl = exportCanvas.toDataURL(mimeType, quality);
-
-    const a = document.createElement("a");
-    a.href = dataUrl;
-    a.download = `passport-photo.${FORMAT_EXT[outputFormat]}`;
-    a.click();
-  };
-
-  // ── Reset ─────────────────────────────────────────────────────────────────
-
-  const reset = () => {
-    setUploadedFile(null);
-
-    if (originalImageUrl) URL.revokeObjectURL(originalImageUrl);
-    if (processedImageUrl) URL.revokeObjectURL(processedImageUrl);
-    if (bgImageUrl) URL.revokeObjectURL(bgImageUrl);
-
-    setOriginalImageUrl(null);
-    setProcessedImageUrl(null);
-    setBgImageUrl(null);
-    setBgMode("transparent");
-    setBgColor("#ffffff");
-    setSubjectTransform({ x: 0, y: 0, scale: 1 });
-    setBgTransform({ x: 0, y: 0, scale: 1 });
-    setSelectedDocSize(null);
-    setDragTarget("subject");
-    setError(null);
-    setProgress(null);
-    setStatus("Ready to upload.");
-
-    if (fileInputRef.current) fileInputRef.current.value = "";
-    if (bgFileInputRef.current) bgFileInputRef.current.value = "";
-  };
-
-  const hasFile = !!uploadedFile;
-  const hasResult = !!processedImageUrl;
-  const { w: canvasW, h: canvasH } = getCanvasDimensions();
-
-  const guideHeader = hasResult
-    ? "Touch or click the photo, then drag the selected layer. Use the toggle below to switch between Subject and Background."
-    : originalImageUrl
-      ? "Your image is uploaded. Click Remove Background to create the editable photo."
-      : "Start by uploading a photo from your device.";
-
-  const EditSection = () => (
+const BLEND_MODES: { label: string; value: BlendMode }[] = [
+  { label: "Normal", value: "normal" },
+  { label: "Multiply", value: "multiply" },
+  { label: "Darken", value: "darken" },
+  { label: "Screen", value: "screen" },
+  { label: "Overlay", value: "overlay" },
+  { label: "Soft Light", value: "soft-light" },
+  { label: "Hard Light", value: "hard-light" },
+  { label: "Color Burn", value: "color-burn" },
+  { label: "Color Dodge", value: "color-dodge" },
+  { label: "Difference", value: "difference" },
+  { label: "Luminosity", value: "luminosity" },
+];
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const round2 = (value: number) => Math.round(value * 100) / 100;
+const format2 = (value: number) => value.toFixed(2);
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
+
+const getDistance = (a: PointerPoint, b: PointerPoint) =>
+  Math.hypot(a.x - b.x, a.y - b.y);
+
+const getCenter = (a: PointerPoint, b: PointerPoint) => ({
+  x: (a.x + b.x) / 2,
+  y: (a.y + b.y) / 2,
+});
+
+const getScaleBounds = (target: DragTarget) =>
+  target === "bg" ? { min: 0.1, max: 5 } : { min: 0.1, max: 3 };
+
+const getCanvasBlendMode = (mode: BlendMode): GlobalCompositeOperation => {
+  if (mode === "normal") return "source-over";
+  return mode as GlobalCompositeOperation;
+};
+
+// ─── Edit Section ────────────────────────────────────────────────────────────
+
+interface EditSectionProps {
+  activeTab: ActiveTab;
+  setActiveTab: Dispatch<SetStateAction<ActiveTab>>;
+
+  bgMode: BgMode;
+  setBgMode: Dispatch<SetStateAction<BgMode>>;
+  bgColor: string;
+  setBgColor: Dispatch<SetStateAction<string>>;
+  bgImageUrl: string | null;
+  bgFileInputRef: React.RefObject<HTMLInputElement | null>;
+  handleBgImageSelect: (e: ChangeEvent<HTMLInputElement>) => void;
+  bgTransform: Transform;
+  setBgTransform: Dispatch<SetStateAction<Transform>>;
+
+  dragTarget: DragTarget;
+  setDragTarget: Dispatch<SetStateAction<DragTarget>>;
+  subjectTransform: Transform;
+  setSubjectTransform: Dispatch<SetStateAction<Transform>>;
+  subjectBlendMode: BlendMode;
+  setSubjectBlendMode: Dispatch<SetStateAction<BlendMode>>;
+
+  selectedDocSize: DocSize | null;
+  setSelectedDocSize: Dispatch<SetStateAction<DocSize | null>>;
+
+  outputFormat: OutputFormat;
+  setOutputFormat: Dispatch<SetStateAction<OutputFormat>>;
+  outputQuality: number;
+  setOutputQuality: Dispatch<SetStateAction<number>>;
+}
+
+const EditSection = memo(function EditSection({
+  activeTab,
+  setActiveTab,
+  bgMode,
+  setBgMode,
+  bgColor,
+  setBgColor,
+  bgImageUrl,
+  bgFileInputRef,
+  handleBgImageSelect,
+  bgTransform,
+  setBgTransform,
+  dragTarget,
+  setDragTarget,
+  subjectTransform,
+  setSubjectTransform,
+  subjectBlendMode,
+  setSubjectBlendMode,
+  selectedDocSize,
+  setSelectedDocSize,
+  outputFormat,
+  setOutputFormat,
+  outputQuality,
+  setOutputQuality,
+}: EditSectionProps) {
+  return (
     <div className="space-y-3">
       <div className="grid grid-cols-4 gap-1 mb-3">
         {(["bg", "subject", "crop", "export"] as const).map((tab) => (
@@ -696,21 +368,20 @@ export default function ImageBackgroundRemover() {
               {bgImageUrl && (
                 <>
                   <label className="text-xs text-neutral-400">
-                    BG Scale: {bgTransform.scale.toFixed(2)}x
+                    BG Scale: {format2(bgTransform.scale)}x
                   </label>
-                  <input
-                    type="range"
+                  <Slider
+                    value={[bgTransform.scale]}
                     min={0.1}
                     max={5}
                     step={0.01}
-                    value={bgTransform.scale}
-                    onChange={(e) =>
+                    onValueChange={(value) =>
                       setBgTransform((t) => ({
                         ...t,
-                        scale: parseFloat(e.target.value),
+                        scale: round2(value[0] ?? 1),
                       }))
                     }
-                    className="w-full accent-amber-500"
+                    className="w-full"
                   />
                   <p className="text-[10px] text-neutral-500">
                     Use the drag controls below to move the background.
@@ -758,66 +429,85 @@ export default function ImageBackgroundRemover() {
               </button>
             </div>
             <p className="mt-2 text-[10px] text-neutral-500">
-              Tap a mode first, then drag on the preview. This works with mouse,
-              touch, and pen.
+              Tap a mode first, then drag on the preview. On mobile, you can
+              also pinch to scale the selected layer.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs text-neutral-400">Blend Mode</label>
+            <Select
+              value={subjectBlendMode}
+              onValueChange={(value) => setSubjectBlendMode(value as BlendMode)}
+            >
+              <SelectTrigger className="w-full bg-neutral-900 border-neutral-700 text-white">
+                <SelectValue placeholder="Normal" />
+              </SelectTrigger>
+              <SelectContent>
+                {BLEND_MODES.map((mode) => (
+                  <SelectItem key={mode.value} value={mode.value}>
+                    {mode.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-neutral-500">
+              Blending affects only the subject layer.
             </p>
           </div>
 
           <label className="text-xs text-neutral-400">
-            Subject Scale: {subjectTransform.scale.toFixed(2)}x
+            Subject Scale: {format2(subjectTransform.scale)}x
           </label>
-          <input
-            type="range"
+          <Slider
+            value={[subjectTransform.scale]}
             min={0.1}
             max={3}
             step={0.01}
-            value={subjectTransform.scale}
-            onChange={(e) =>
+            onValueChange={(value) =>
               setSubjectTransform((t) => ({
                 ...t,
-                scale: parseFloat(e.target.value),
+                scale: round2(value[0] ?? 1),
               }))
             }
-            className="w-full accent-amber-500"
+            className="w-full"
           />
 
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-xs text-neutral-400">
-                X offset: {subjectTransform.x}px
+                X offset: {format2(subjectTransform.x)}px
               </label>
-              <input
-                type="range"
+              <Slider
+                value={[subjectTransform.x]}
                 min={-200}
                 max={200}
-                step={1}
-                value={subjectTransform.x}
-                onChange={(e) =>
+                step={0.01}
+                onValueChange={(value) =>
                   setSubjectTransform((t) => ({
                     ...t,
-                    x: parseInt(e.target.value, 10),
+                    x: round2(value[0] ?? 0),
                   }))
                 }
-                className="w-full accent-amber-500"
+                className="w-full"
               />
             </div>
             <div>
               <label className="text-xs text-neutral-400">
-                Y offset: {subjectTransform.y}px
+                Y offset: {format2(subjectTransform.y)}px
               </label>
-              <input
-                type="range"
+              <Slider
+                value={[subjectTransform.y]}
                 min={-200}
                 max={200}
-                step={1}
-                value={subjectTransform.y}
-                onChange={(e) =>
+                step={0.01}
+                onValueChange={(value) =>
                   setSubjectTransform((t) => ({
                     ...t,
-                    y: parseInt(e.target.value, 10),
+                    y: round2(value[0] ?? 0),
                   }))
                 }
-                className="w-full accent-amber-500"
+                className="w-full"
               />
             </div>
           </div>
@@ -906,14 +596,15 @@ export default function ImageBackgroundRemover() {
               <label className="text-xs text-neutral-400 block mb-1">
                 Quality: {Math.round(outputQuality * 100)}%
               </label>
-              <input
-                type="range"
+              <Slider
+                value={[outputQuality]}
                 min={0.1}
                 max={1}
                 step={0.01}
-                value={outputQuality}
-                onChange={(e) => setOutputQuality(parseFloat(e.target.value))}
-                className="w-full accent-amber-500"
+                onValueChange={(value) =>
+                  setOutputQuality(round2(value[0] ?? 0.92))
+                }
+                className="w-full"
               />
             </div>
           )}
@@ -927,10 +618,648 @@ export default function ImageBackgroundRemover() {
       )}
     </div>
   );
+});
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+export default function ImageBackgroundRemover() {
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
+  const [processedImageUrl, setProcessedImageUrl] = useState<string | null>(
+    null,
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState("Ready to upload.");
+  const [progress, setProgress] = useState<string | null>(null);
+
+  const [activeTab, setActiveTab] = useState<ActiveTab>("bg");
+  const [bgMode, setBgMode] = useState<BgMode>("transparent");
+  const [bgColor, setBgColor] = useState("#ffffff");
+  const [bgImageUrl, setBgImageUrl] = useState<string | null>(null);
+  const [bgTransform, setBgTransform] = useState<Transform>({
+    x: 0,
+    y: 0,
+    scale: 1,
+  });
+  const [subjectTransform, setSubjectTransform] = useState<Transform>({
+    x: 0,
+    y: 0,
+    scale: 1,
+  });
+  const [subjectBlendMode, setSubjectBlendMode] = useState<BlendMode>("normal");
+  const [selectedDocSize, setSelectedDocSize] = useState<DocSize | null>(null);
+  const [outputFormat, setOutputFormat] = useState<OutputFormat>("image/png");
+  const [outputQuality, setOutputQuality] = useState(0.92);
+
+  const [dragTarget, setDragTarget] = useState<DragTarget>("subject");
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const bgFileInputRef = useRef<HTMLInputElement>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  const subjectImgRef = useRef<HTMLImageElement | null>(null);
+  const bgImgRef = useRef<HTMLImageElement | null>(null);
+
+  const [originalDimensions, setOriginalDimensions] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
+
+  const activePointersRef = useRef<Map<number, PointerPoint>>(new Map());
+  const gestureRef = useRef<GestureState | null>(null);
+
+  const getCanvasDimensions = useCallback(() => {
+    if (selectedDocSize) {
+      const { widthMm, heightMm } = selectedDocSize;
+      if (widthMm >= heightMm) {
+        return {
+          w: CANVAS_PREVIEW_SIZE,
+          h: Math.round((CANVAS_PREVIEW_SIZE * heightMm) / widthMm),
+        };
+      }
+      return {
+        h: CANVAS_PREVIEW_SIZE,
+        w: Math.round((CANVAS_PREVIEW_SIZE * widthMm) / heightMm),
+      };
+    }
+
+    if (originalDimensions) {
+      const { width, height } = originalDimensions;
+      if (width >= height) {
+        return {
+          w: CANVAS_PREVIEW_SIZE,
+          h: Math.round((CANVAS_PREVIEW_SIZE * height) / width),
+        };
+      }
+      return {
+        h: CANVAS_PREVIEW_SIZE,
+        w: Math.round((CANVAS_PREVIEW_SIZE * width) / height),
+      };
+    }
+
+    return { w: CANVAS_PREVIEW_SIZE, h: CANVAS_PREVIEW_SIZE };
+  }, [selectedDocSize, originalDimensions]);
+
+  const drawCanvas = useCallback(() => {
+    const canvas = previewCanvasRef.current;
+    if (!canvas) return;
+
+    const { w, h } = getCanvasDimensions();
+    canvas.width = w;
+    canvas.height = h;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, w, h);
+
+    ctx.globalCompositeOperation = "source-over";
+
+    if (bgMode === "color") {
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, w, h);
+    } else if (bgMode === "image" && bgImgRef.current) {
+      const img = bgImgRef.current;
+      const { x, y, scale } = bgTransform;
+      const drawW = img.naturalWidth * scale;
+      const drawH = img.naturalHeight * scale;
+      const cx = w / 2 + x - drawW / 2;
+      const cy = h / 2 + y - drawH / 2;
+      ctx.drawImage(img, cx, cy, drawW, drawH);
+    } else if (bgMode === "transparent") {
+      const sq = 16;
+      for (let row = 0; row * sq < h; row++) {
+        for (let col = 0; col * sq < w; col++) {
+          ctx.fillStyle = (row + col) % 2 === 0 ? "#d0d0d0" : "#f8f8f8";
+          ctx.fillRect(col * sq, row * sq, sq, sq);
+        }
+      }
+    }
+
+    if (subjectImgRef.current) {
+      const img = subjectImgRef.current;
+      const { x, y, scale } = subjectTransform;
+      const fitScale = Math.min(w / img.naturalWidth, h / img.naturalHeight);
+      const drawW = img.naturalWidth * fitScale * scale;
+      const drawH = img.naturalHeight * fitScale * scale;
+      const cx = w / 2 + x - drawW / 2;
+      const cy = h / 2 + y - drawH / 2;
+
+      ctx.globalCompositeOperation = getCanvasBlendMode(subjectBlendMode);
+      ctx.drawImage(img, cx, cy, drawW, drawH);
+      ctx.globalCompositeOperation = "source-over";
+    }
+  }, [
+    bgMode,
+    bgColor,
+    bgTransform,
+    subjectTransform,
+    subjectBlendMode,
+    getCanvasDimensions,
+  ]);
+
+  useEffect(() => {
+    if (!processedImageUrl) {
+      subjectImgRef.current = null;
+      return;
+    }
+
+    const img = new Image();
+    img.onload = () => {
+      subjectImgRef.current = img;
+      drawCanvas();
+    };
+    img.src = processedImageUrl;
+  }, [processedImageUrl, drawCanvas]);
+
+  useEffect(() => {
+    if (!originalImageUrl) {
+      setOriginalDimensions(null);
+      return;
+    }
+
+    const img = new Image();
+    img.onload = () => {
+      setOriginalDimensions({
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+      });
+    };
+    img.src = originalImageUrl;
+  }, [originalImageUrl]);
+
+  useEffect(() => {
+    if (!bgImageUrl) {
+      bgImgRef.current = null;
+      return;
+    }
+
+    const img = new Image();
+    img.onload = () => {
+      bgImgRef.current = img;
+      drawCanvas();
+    };
+    img.src = bgImageUrl;
+  }, [bgImageUrl, drawCanvas]);
+
+  useEffect(() => {
+    drawCanvas();
+  }, [drawCanvas]);
+
+  const applyTransform = useCallback(
+    (target: DragTarget, updater: (current: Transform) => Transform) => {
+      if (target === "bg") {
+        setBgTransform((current) => updater(current));
+      } else {
+        setSubjectTransform((current) => updater(current));
+      }
+    },
+    [setBgTransform, setSubjectTransform],
+  );
+
+  const getCurrentTransform = useCallback(
+    (target: DragTarget) => (target === "bg" ? bgTransform : subjectTransform),
+    [bgTransform, subjectTransform],
+  );
+
+  const startDragGesture = useCallback(
+    (pointerId: number, pointer: PointerPoint, target: DragTarget) => {
+      const currentTransform = getCurrentTransform(target);
+      gestureRef.current = {
+        mode: "drag",
+        target,
+        primaryPointerId: pointerId,
+        secondaryPointerId: null,
+        startX: pointer.x,
+        startY: pointer.y,
+        startTx: currentTransform.x,
+        startTy: currentTransform.y,
+        startScale: currentTransform.scale,
+        startDistance: 0,
+        startCenterX: pointer.x,
+        startCenterY: pointer.y,
+      };
+    },
+    [getCurrentTransform],
+  );
+
+  const startPinchGesture = useCallback(
+    (target: DragTarget, firstId: number, secondId: number) => {
+      const first = activePointersRef.current.get(firstId);
+      const second = activePointersRef.current.get(secondId);
+      if (!first || !second) return;
+
+      const currentTransform = getCurrentTransform(target);
+      const center = getCenter(first, second);
+
+      gestureRef.current = {
+        mode: "pinch",
+        target,
+        primaryPointerId: firstId,
+        secondaryPointerId: secondId,
+        startX: currentTransform.x,
+        startY: currentTransform.y,
+        startTx: currentTransform.x,
+        startTy: currentTransform.y,
+        startScale: currentTransform.scale,
+        startDistance: getDistance(first, second),
+        startCenterX: center.x,
+        startCenterY: center.y,
+      };
+    },
+    [getCurrentTransform],
+  );
+
+  const updateGestureFromPointers = useCallback(() => {
+    const gesture = gestureRef.current;
+    if (!gesture || gesture.mode !== "pinch") return;
+
+    if (
+      gesture.primaryPointerId == null ||
+      gesture.secondaryPointerId == null
+    ) {
+      return;
+    }
+
+    const first = activePointersRef.current.get(gesture.primaryPointerId);
+    const second = activePointersRef.current.get(gesture.secondaryPointerId);
+
+    if (!first || !second) {
+      return;
+    }
+
+    const currentCenter = getCenter(first, second);
+    const currentDistance = getDistance(first, second);
+
+    if (gesture.startDistance <= 0) return;
+
+    const bounds = getScaleBounds(gesture.target);
+    const nextScale = clamp(
+      round2(gesture.startScale * (currentDistance / gesture.startDistance)),
+      bounds.min,
+      bounds.max,
+    );
+
+    const nextX = round2(
+      gesture.startTx + (currentCenter.x - gesture.startCenterX),
+    );
+    const nextY = round2(
+      gesture.startTy + (currentCenter.y - gesture.startCenterY),
+    );
+
+    applyTransform(gesture.target, (current) => ({
+      ...current,
+      x: nextX,
+      y: nextY,
+      scale: nextScale,
+    }));
+  }, [applyTransform]);
+
+  const rebuildGestureAfterPointerLoss = useCallback(() => {
+    const gesture = gestureRef.current;
+    if (!gesture) return;
+
+    const touches = Array.from(activePointersRef.current.entries()).filter(
+      ([, p]) => p.pointerType === "touch",
+    );
+
+    if (touches.length >= 2) {
+      const [firstId] = touches[0];
+      const [secondId] = touches[1];
+      startPinchGesture(gesture.target, firstId, secondId);
+      return;
+    }
+
+    if (touches.length === 1) {
+      const [pointerId, pointer] = touches[0];
+      startDragGesture(pointerId, pointer, gesture.target);
+      return;
+    }
+
+    gestureRef.current = null;
+  }, [startDragGesture, startPinchGesture]);
+
+  const handlePointerDown = useCallback(
+    (e: PointerEvent<HTMLCanvasElement>) => {
+      if (!processedImageUrl) return;
+
+      const canvas = previewCanvasRef.current;
+      if (!canvas) return;
+
+      const pointer: PointerPoint = {
+        x: e.clientX,
+        y: e.clientY,
+        pointerType: e.pointerType,
+      };
+
+      activePointersRef.current.set(e.pointerId, pointer);
+      canvas.setPointerCapture(e.pointerId);
+
+      const target = dragTarget;
+
+      if (e.pointerType === "touch") {
+        const touchPointers = Array.from(
+          activePointersRef.current.entries(),
+        ).filter(([, p]) => p.pointerType === "touch");
+
+        if (touchPointers.length >= 2) {
+          const [firstId] = touchPointers[0];
+          const [secondId] = touchPointers[1];
+          startPinchGesture(target, firstId, secondId);
+          return;
+        }
+      }
+
+      startDragGesture(e.pointerId, pointer, target);
+    },
+    [dragTarget, processedImageUrl, startDragGesture, startPinchGesture],
+  );
+
+  const handlePointerMove = useCallback(
+    (e: PointerEvent<HTMLCanvasElement>) => {
+      const existing = activePointersRef.current.get(e.pointerId);
+      if (existing) {
+        activePointersRef.current.set(e.pointerId, {
+          ...existing,
+          x: e.clientX,
+          y: e.clientY,
+        });
+      }
+
+      const gesture = gestureRef.current;
+      if (!gesture || !processedImageUrl) return;
+
+      if (
+        gesture.mode === "drag" &&
+        gesture.primaryPointerId === e.pointerId &&
+        gesture.primaryPointerId != null
+      ) {
+        const dx = e.clientX - gesture.startX;
+        const dy = e.clientY - gesture.startY;
+
+        const nextX = round2(gesture.startTx + dx);
+        const nextY = round2(gesture.startTy + dy);
+
+        applyTransform(gesture.target, (current) => ({
+          ...current,
+          x: nextX,
+          y: nextY,
+        }));
+        return;
+      }
+
+      if (gesture.mode === "pinch") {
+        updateGestureFromPointers();
+      }
+    },
+    [applyTransform, processedImageUrl, updateGestureFromPointers],
+  );
+
+  const finishPointer = useCallback(
+    (e: PointerEvent<HTMLCanvasElement>) => {
+      activePointersRef.current.delete(e.pointerId);
+
+      const canvas = previewCanvasRef.current;
+      if (canvas) {
+        try {
+          canvas.releasePointerCapture(e.pointerId);
+        } catch {
+          // ignore
+        }
+      }
+
+      const gesture = gestureRef.current;
+      if (!gesture) return;
+
+      const isRelevantPointer =
+        gesture.primaryPointerId === e.pointerId ||
+        gesture.secondaryPointerId === e.pointerId;
+
+      if (!isRelevantPointer) return;
+
+      rebuildGestureAfterPointerLoss();
+    },
+    [rebuildGestureAfterPointerLoss],
+  );
+
+  const handleFileSelect = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      setError("Please choose a valid image file.");
+      return;
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      setError("File size must be less than 50MB.");
+      return;
+    }
+
+    if (originalImageUrl) URL.revokeObjectURL(originalImageUrl);
+    if (processedImageUrl) URL.revokeObjectURL(processedImageUrl);
+
+    setUploadedFile(file);
+    setOriginalImageUrl(URL.createObjectURL(file));
+    setProcessedImageUrl(null);
+    setSubjectTransform({ x: 0, y: 0, scale: 1 });
+    setBgTransform({ x: 0, y: 0, scale: 1 });
+    setSubjectBlendMode("normal");
+    setError(null);
+    setProgress(null);
+    setStatus("Image uploaded. You can now remove the background.");
+  };
+
+  const handleDrop = (e: DragEvent<HTMLElement>) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileSelect(file);
+  };
+
+  const handleBgImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (bgImageUrl) URL.revokeObjectURL(bgImageUrl);
+
+    setBgImageUrl(URL.createObjectURL(file));
+    setBgMode("image");
+    setBgTransform({ x: 0, y: 0, scale: 1 });
+  };
+
+  const removeBackground = async () => {
+    if (!uploadedFile) return;
+
+    setLoading(true);
+    setError(null);
+    setProgress(null);
+    setStatus("Starting background removal...");
+
+    try {
+      const config: Config = {
+        output: { format: "image/png", quality: 1 },
+        progress: (key: string, current: number, total: number) => {
+          if (total > 0) {
+            const pct = Math.round((current / total) * 100);
+            setProgress(
+              `${key.includes("fetch") ? "Downloading model" : "Processing"}: ${pct}%`,
+            );
+          }
+        },
+      };
+
+      setStatus("Removing background...");
+      const resultBlob: Blob = await imgly.removeBackground(
+        uploadedFile,
+        config,
+      );
+      const url = URL.createObjectURL(resultBlob);
+
+      setProcessedImageUrl(url);
+      setProgress(null);
+      setStatus("Done. Use the edit tools below to adjust the photo.");
+    } catch (err) {
+      console.error(err);
+      setError(
+        err instanceof Error ? err.message : "Failed to remove background.",
+      );
+      setStatus("Processing failed.");
+      setProgress(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const downloadImage = () => {
+    if (!previewCanvasRef.current) return;
+
+    let exportW: number;
+    let exportH: number;
+    let exportScale: number;
+
+    if (selectedDocSize) {
+      const { w, h } = getCanvasDimensions();
+      exportW = w;
+      exportH = h;
+      exportScale = 2;
+    } else if (originalDimensions) {
+      exportW = originalDimensions.width;
+      exportH = originalDimensions.height;
+      exportScale = 1;
+    } else {
+      const { w, h } = getCanvasDimensions();
+      exportW = w;
+      exportH = h;
+      exportScale = 2;
+    }
+
+    const exportCanvas = document.createElement("canvas");
+    exportCanvas.width = exportW * exportScale;
+    exportCanvas.height = exportH * exportScale;
+
+    const ctx = exportCanvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.scale(exportScale, exportScale);
+    ctx.clearRect(0, 0, exportW, exportH);
+    ctx.globalCompositeOperation = "source-over";
+
+    if (bgMode === "color") {
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, exportW, exportH);
+    } else if (bgMode === "image" && bgImgRef.current) {
+      const img = bgImgRef.current;
+      const { x, y, scale: s } = bgTransform;
+      const previewDims = getCanvasDimensions();
+      const xScale = exportW / previewDims.w;
+      const yScale = exportH / previewDims.h;
+      const drawW = img.naturalWidth * s;
+      const drawH = img.naturalHeight * s;
+
+      ctx.drawImage(
+        img,
+        exportW / 2 + x * xScale - drawW / 2,
+        exportH / 2 + y * yScale - drawH / 2,
+        drawW,
+        drawH,
+      );
+    }
+
+    if (subjectImgRef.current) {
+      const img = subjectImgRef.current;
+      const { x, y, scale: s } = subjectTransform;
+      const previewDims = getCanvasDimensions();
+      const xScale = exportW / previewDims.w;
+      const yScale = exportH / previewDims.h;
+
+      const fitScale = Math.min(
+        exportW / img.naturalWidth,
+        exportH / img.naturalHeight,
+      );
+      const drawW = img.naturalWidth * fitScale * s;
+      const drawH = img.naturalHeight * fitScale * s;
+
+      ctx.globalCompositeOperation = getCanvasBlendMode(subjectBlendMode);
+      ctx.drawImage(
+        img,
+        exportW / 2 + x * xScale - drawW / 2,
+        exportH / 2 + y * yScale - drawH / 2,
+        drawW,
+        drawH,
+      );
+      ctx.globalCompositeOperation = "source-over";
+    }
+
+    const mimeType = outputFormat;
+    const quality = mimeType === "image/png" ? undefined : outputQuality;
+    const dataUrl = exportCanvas.toDataURL(mimeType, quality);
+
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = `edited-photo.${FORMAT_EXT[outputFormat]}`;
+    a.click();
+  };
+
+  const reset = () => {
+    setUploadedFile(null);
+
+    if (originalImageUrl) URL.revokeObjectURL(originalImageUrl);
+    if (processedImageUrl) URL.revokeObjectURL(processedImageUrl);
+    if (bgImageUrl) URL.revokeObjectURL(bgImageUrl);
+
+    setOriginalImageUrl(null);
+    setProcessedImageUrl(null);
+    setBgImageUrl(null);
+    setBgMode("transparent");
+    setBgColor("#ffffff");
+    setSubjectTransform({ x: 0, y: 0, scale: 1 });
+    setBgTransform({ x: 0, y: 0, scale: 1 });
+    setSubjectBlendMode("normal");
+    setSelectedDocSize(null);
+    setDragTarget("subject");
+    setActiveTab("bg");
+    setError(null);
+    setProgress(null);
+    setStatus("Ready to upload.");
+
+    activePointersRef.current.clear();
+    gestureRef.current = null;
+
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (bgFileInputRef.current) bgFileInputRef.current.value = "";
+  };
+
+  const hasFile = !!uploadedFile;
+  const hasResult = !!processedImageUrl;
+  const { w: canvasW, h: canvasH } = getCanvasDimensions();
+
+  const guideHeader = hasResult
+    ? "Touch or click the photo, then drag the selected layer. On mobile, use two fingers to pinch and scale the selected layer."
+    : originalImageUrl
+      ? "Your image is uploaded. Click Remove Background to create the editable photo."
+      : "Start by uploading a photo from your device.";
+
   return (
     <div className="min-h-screen bg-neutral-950 text-white font-mono p-3 md:p-5">
       <div className="mx-auto max-w-7xl space-y-4">
-        {/* Header */}
         <div className="border border-neutral-800 bg-black/80 p-4 md:p-6 shadow-2xl shadow-black/40">
           <h1 className="text-center text-3xl md:text-5xl font-bold leading-tight bg-gradient-to-r from-amber-200 to-yellow-500 bg-clip-text text-transparent">
             Free Image Background Remover
@@ -942,9 +1271,7 @@ export default function ImageBackgroundRemover() {
         </div>
 
         <div className="grid gap-4 xl:grid-cols-[360px_1fr]">
-          {/* ── Left Panel ── */}
           <aside className="border border-neutral-800 bg-black p-4 md:p-5 shadow-xl shadow-black/30 space-y-4">
-            {/* Upload */}
             <div>
               <h2 className="text-lg font-semibold text-white mb-2">
                 1. Upload Image
@@ -984,7 +1311,6 @@ export default function ImageBackgroundRemover() {
               </label>
             </div>
 
-            {/* Remove BG button */}
             <div>
               <h2 className="text-lg font-semibold text-white mb-2">
                 2. Remove Background
@@ -1009,17 +1335,39 @@ export default function ImageBackgroundRemover() {
               </div>
             </div>
 
-            {/* Editor Tabs - desktop only */}
             {hasResult && (
               <div className="hidden md:block">
                 <h2 className="text-lg font-semibold text-white mb-2">
                   3. Edit
                 </h2>
-                <EditSection />
+                <EditSection
+                  activeTab={activeTab}
+                  setActiveTab={setActiveTab}
+                  bgMode={bgMode}
+                  setBgMode={setBgMode}
+                  bgColor={bgColor}
+                  setBgColor={setBgColor}
+                  bgImageUrl={bgImageUrl}
+                  bgFileInputRef={bgFileInputRef}
+                  handleBgImageSelect={handleBgImageSelect}
+                  bgTransform={bgTransform}
+                  setBgTransform={setBgTransform}
+                  dragTarget={dragTarget}
+                  setDragTarget={setDragTarget}
+                  subjectTransform={subjectTransform}
+                  setSubjectTransform={setSubjectTransform}
+                  subjectBlendMode={subjectBlendMode}
+                  setSubjectBlendMode={setSubjectBlendMode}
+                  selectedDocSize={selectedDocSize}
+                  setSelectedDocSize={setSelectedDocSize}
+                  outputFormat={outputFormat}
+                  setOutputFormat={setOutputFormat}
+                  outputQuality={outputQuality}
+                  setOutputQuality={setOutputQuality}
+                />
               </div>
             )}
 
-            {/* Actions - desktop only */}
             <div className="hidden md:grid grid-cols-2 gap-3 pt-1">
               <button
                 type="button"
@@ -1037,6 +1385,7 @@ export default function ImageBackgroundRemover() {
                 Reset
               </button>
             </div>
+
             <div className="hidden md:block rounded-xl border border-neutral-800 bg-neutral-950/70 p-4 space-y-2">
               <h2 className="text-base md:text-lg font-semibold text-white">
                 How to use
@@ -1062,7 +1411,6 @@ export default function ImageBackgroundRemover() {
             </div>
           </aside>
 
-          {/* ── Right Panel: Preview ── */}
           <main className="border border-neutral-800 bg-black p-4 md:p-5 shadow-xl shadow-black/30">
             <div className="mb-4 space-y-2">
               <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -1091,7 +1439,6 @@ export default function ImageBackgroundRemover() {
             ) : (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-                  {/* Original */}
                   <div className="space-y-2">
                     <h3 className="text-sm font-medium text-neutral-300">
                       Original
@@ -1109,16 +1456,40 @@ export default function ImageBackgroundRemover() {
                       />
                     </div>
                   </div>
-                  {/* Mobile Edit Controls */}
+
                   {hasResult && (
                     <div className="md:hidden mb-4 rounded-xl border border-neutral-800 bg-neutral-950/70 p-4">
                       <h2 className="text-lg font-semibold text-white mb-2">
                         3. Edit
                       </h2>
-                      <EditSection />
+                      <EditSection
+                        activeTab={activeTab}
+                        setActiveTab={setActiveTab}
+                        bgMode={bgMode}
+                        setBgMode={setBgMode}
+                        bgColor={bgColor}
+                        setBgColor={setBgColor}
+                        bgImageUrl={bgImageUrl}
+                        bgFileInputRef={bgFileInputRef}
+                        handleBgImageSelect={handleBgImageSelect}
+                        bgTransform={bgTransform}
+                        setBgTransform={setBgTransform}
+                        dragTarget={dragTarget}
+                        setDragTarget={setDragTarget}
+                        subjectTransform={subjectTransform}
+                        setSubjectTransform={setSubjectTransform}
+                        subjectBlendMode={subjectBlendMode}
+                        setSubjectBlendMode={setSubjectBlendMode}
+                        selectedDocSize={selectedDocSize}
+                        setSelectedDocSize={setSelectedDocSize}
+                        outputFormat={outputFormat}
+                        setOutputFormat={setOutputFormat}
+                        outputQuality={outputQuality}
+                        setOutputQuality={setOutputQuality}
+                      />
                     </div>
                   )}
-                  {/* Composite canvas */}
+
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <h3 className="text-sm font-medium text-neutral-300">
@@ -1158,11 +1529,11 @@ export default function ImageBackgroundRemover() {
                           ref={previewCanvasRef}
                           width={canvasW}
                           height={canvasH}
-                          onPointerDown={beginDrag}
-                          onPointerMove={moveDrag}
-                          onPointerUp={endDrag}
-                          onPointerCancel={cancelDrag}
-                          onPointerLeave={cancelDrag}
+                          onPointerDown={handlePointerDown}
+                          onPointerMove={handlePointerMove}
+                          onPointerUp={finishPointer}
+                          onPointerCancel={finishPointer}
+                          onPointerLeave={finishPointer}
                           className="max-w-full max-h-96 cursor-move touch-none select-none"
                           style={{
                             imageRendering: "auto",
@@ -1177,7 +1548,7 @@ export default function ImageBackgroundRemover() {
                         </div>
                       )}
                     </div>
-                    {/* Mobile Actions */}
+
                     <div className="mt-4 grid grid-cols-2 gap-3 md:hidden">
                       <button
                         type="button"
