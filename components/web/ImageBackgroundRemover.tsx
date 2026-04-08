@@ -1210,12 +1210,21 @@ export default function ImageBackgroundRemover() {
 
     const mimeType = outputFormat;
     const quality = mimeType === "image/png" ? undefined : outputQuality;
-    const dataUrl = exportCanvas.toDataURL(mimeType, quality);
 
-    const a = document.createElement("a");
-    a.href = dataUrl;
-    a.download = `edited-photo.${FORMAT_EXT[outputFormat]}`;
-    a.click();
+    // Updated: Use toBlob instead of toDataURL for better iOS compatibility
+    exportCanvas.toBlob(
+      (blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `edited-photo.${FORMAT_EXT[outputFormat]}`;
+        a.click();
+        URL.revokeObjectURL(url); // Clean up the blob URL
+      },
+      mimeType,
+      quality,
+    );
   };
 
   const reset = () => {
