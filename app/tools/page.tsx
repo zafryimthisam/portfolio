@@ -1,4 +1,48 @@
+import { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Tools",
+  description:
+    "Find free tools like image background remover, collage maker and more AI tools",
+  keywords: [
+    "image background remover",
+    "free online image background remover",
+    "remove background for free",
+    "collage maker",
+    "free collage maker",
+    "collage maker online",
+    "collage maker tool",
+    "collage maker",
+    "remove bg",
+    "ai tools",
+    "ai background remover",
+  ],
+  openGraph: {
+    title: "AI tools",
+    description:
+      "Find free tools like image background remover, collage maker and more AI tools",
+    siteName: "Zafry.dev",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "AI Tools",
+    description: "Find AI tools, editors and more",
+    creator: "@ZafryImthisam",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    nocache: false,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-snippet": -1,
+      "max-image-preview": "large",
+      "max-video-preview": -1,
+    },
+  },
+};
 
 export default function ToolsPage() {
   return (

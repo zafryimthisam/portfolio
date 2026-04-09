@@ -1,21 +1,63 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Poppins } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NavBar from "@/components/web/NavBar";
 import { Toaster } from "sonner";
 import { TanstackProvider } from "@/components/providers/tanstack-provider";
 
-const poppins = Poppins({
-  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-poppins",
-});
-
 export const metadata: Metadata = {
-  title: "Portfolio",
-  description: "Portfolio to showcase my skills",
+  title: "Zafry.dev - Portfolio & Creative Tools",
+  description:
+    "Portfolio of Zafry Imthisam, a Computer Science undergraduate specializing in full-stack web development. Explore projects, creative tools, and connect.",
+  keywords: [
+    "portfolio",
+    "developer",
+    "full stack developer",
+    "computer science student",
+    "web development",
+    "react",
+    "nextjs",
+    "typescript",
+    "tailwindcss",
+    "prisma",
+    "better auth",
+    "gsap",
+    "creative tools",
+    "collage maker",
+    "background remover",
+    "image editing",
+    "AI tools",
+  ],
+  authors: [{ name: "Zafry Imthisam" }],
+  creator: "Zafry Imthisam",
+  publisher: "Zafry Imthisam",
+  openGraph: {
+    title: "Zafry.dev - Portfolio & Creative Tools",
+    description:
+      "Portfolio of Zafry Imthisam, a Computer Science undergraduate. Explore full-stack projects, creative AI tools, and connect.",
+    siteName: "Zafry.dev",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Zafry.dev - Portfolio & Creative Tools",
+    description:
+      "Portfolio of Zafry Imthisam, a Computer Science undergraduate. Explore projects and creative tools.",
+    creator: "@ZafryImthisam",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    nocache: false,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-snippet": -1,
+      "max-image-preview": "large",
+      "max-video-preview": -1,
+    },
+  },
 };
 
 export default function RootLayout({
