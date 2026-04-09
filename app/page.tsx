@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import HomeClient from "./HomeClient";
 
 export const metadata: Metadata = {
-  title: "Zafry Imthisam - Full Stack Developer & Computer Science Student",
+  title: "Zafry Imthisam - Full Stack Web Developer",
   description:
     "Portfolio of Zafry Imthisam, a Computer Science undergraduate at SLIIT with hands-on experience in full-stack web applications. Seeking internship opportunities.",
   keywords: [
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     "developer portfolio",
   ],
   openGraph: {
-    title: "Zafry Imthisam - Full Stack Developer & Computer Science Student",
+    title: "Zafry Imthisam - Full Stack Web Developer",
     description:
       "Explore the portfolio of Zafry Imthisam, showcasing full-stack web development projects and creative tools.",
     siteName: "Zafry.dev",
