@@ -1169,10 +1169,15 @@ export default function ImageBackgroundRemover() {
       const img = bgImgRef.current;
       const { x, y, scale: s } = bgTransform;
       const previewDims = getCanvasDimensions();
+
       const xScale = exportW / previewDims.w;
       const yScale = exportH / previewDims.h;
-      const drawW = img.naturalWidth * s;
-      const drawH = img.naturalHeight * s;
+
+      // IMPORTANT: scale the bg image size too, not only x/y
+      const exportScaleFactor = xScale; // same ratio in your layout, so this is fine
+
+      const drawW = img.naturalWidth * s * exportScaleFactor;
+      const drawH = img.naturalHeight * s * exportScaleFactor;
 
       ctx.drawImage(
         img,
