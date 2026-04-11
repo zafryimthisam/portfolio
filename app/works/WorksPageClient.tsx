@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { auth } from "@/lib/auth";
 import { signOut } from "@/lib/actions/auth-actions";
+import AfterLoginComponent from "@/components/web/AfterLoginComponent";
 
 type Session = typeof auth.$Infer.Session;
 
@@ -150,24 +151,7 @@ export default function WorksPageClient({
           Try creating an Account. Your information is secured with us
         </p>
         <div className="w-full max-w-md mx-auto mt-3">
-          {user && (
-            <div className="flex flex-col items-center gap-3 py-4">
-              <p className="text-sm text-zinc-400">
-                Signed in as{" "}
-                <span className="text-white font-medium">{user.email}</span>
-              </p>
-              <form action={signOut}>
-                <Button
-                  type="submit"
-                  variant="outline"
-                  className="cursor-pointer"
-                >
-                  Sign Out
-                </Button>
-              </form>
-            </div>
-          )}
-          <SignUpComponent />
+          {user ? <AfterLoginComponent user={user} /> : <SignUpComponent />}
         </div>
       </div>
 
