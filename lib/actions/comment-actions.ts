@@ -6,7 +6,6 @@ import { commentType } from "../schemas/comments-schema";
 export async function getComments() {
   return prisma.comment.findMany({
     orderBy: { createdAt: "desc" },
-    take: 5,
   });
 }
 

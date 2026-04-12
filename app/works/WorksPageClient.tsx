@@ -28,6 +28,7 @@ import {
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -222,61 +223,63 @@ export default function WorksPageClient({
             </FieldGroup>
           </form>
           <p className="text-sm md:text-base mt-2 md:mt-4">Comments</p>
-          <div>
-            {comments.length === 0 ? (
-              <p className="text-zinc-400">
-                No comments yet. Be the first to comment!
-              </p>
-            ) : (
-              comments.map((comment: commentType) => (
-                <div
-                  className="bg-black p-2 my-1.5 rounded-sm"
-                  key={comment.name}
-                >
-                  <div className="flex items-center gap-2 mb-3">
-                    <Avatar className="w-6 h-6 md:w-8 md:h-8">
-                      <AvatarFallback>
-                        {comment.name[0].toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <p className="text-sm md:text-base">{comment.name}</p>
+          <ScrollArea className="h-80">
+            <div>
+              {comments.length === 0 ? (
+                <p className="text-zinc-400">
+                  No comments yet. Be the first to comment!
+                </p>
+              ) : (
+                comments.map((comment: commentType) => (
+                  <div
+                    className="bg-black p-2 my-1.5 rounded-sm"
+                    key={comment.name}
+                  >
+                    <div className="flex items-center gap-2 mb-3">
+                      <Avatar className="w-6 h-6 md:w-8 md:h-8">
+                        <AvatarFallback>
+                          {comment.name[0].toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <p className="text-sm md:text-base">{comment.name}</p>
 
-                    <div className="flex-1"></div>
-                    {comment.name !== "Zafry Imthisam" && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <button className="cursor-pointer text-red-400 hover:text-red-500">
-                            <IconTrash className="w-5 h-5" />
-                          </button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>
-                              Are you sure you want to delete?
-                            </AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This action cannot be undone. The comment will be
-                              permanently deleted.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDelete(comment.name)}
-                            >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    )}
+                      <div className="flex-1"></div>
+                      {comment.name !== "Zafry Imthisam" && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <button className="cursor-pointer text-red-400 hover:text-red-500">
+                              <IconTrash className="w-5 h-5" />
+                            </button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                Are you sure you want to delete?
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. The comment will
+                                be permanently deleted.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDelete(comment.name)}
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                    </div>
+
+                    <p className="text-sm md:text-base">{comment.comment}</p>
                   </div>
-
-                  <p className="text-sm md:text-base">{comment.comment}</p>
-                </div>
-              ))
-            )}
-          </div>
+                ))
+              )}
+            </div>
+          </ScrollArea>
         </div>
       </div>
 
