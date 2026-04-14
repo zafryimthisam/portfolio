@@ -467,7 +467,6 @@ export default function AudioTrimmer() {
                   id="audio-upload"
                   ref={fileInputRef}
                   type="file"
-                  accept="audio/*"
                   className="hidden"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
@@ -575,12 +574,12 @@ export default function AudioTrimmer() {
           <main className="border border-neutral-800 bg-black p-4 md:p-5 shadow-xl shadow-black/30">
             <div className="mb-4">
               <h2 className="text-lg md:text-2xl font-semibold">
-                Waveform Preview
+                Audio Preview
               </h2>
               <p className="text-sm text-neutral-400">
                 {audioBuffer
                   ? `Duration: ${audioBuffer.duration.toFixed(2)}s`
-                  : "Upload an audio file to see the waveform."}
+                  : "Upload an audio file to get started."}
               </p>
             </div>
 
@@ -595,7 +594,7 @@ export default function AudioTrimmer() {
                 />
               ) : (
                 <p className="text-neutral-500">
-                  Upload an audio file to see the waveform.
+                  Upload an audio file to get started.
                 </p>
               )}
             </div>
