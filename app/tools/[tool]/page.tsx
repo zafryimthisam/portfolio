@@ -1,18 +1,23 @@
 import { Metadata } from "next";
 import CollageMaker from "@/components/web/CollageMaker";
 import ImageBackgroundRemover from "@/components/web/ImageBackgroundRemover";
+import AudioTrimmer from "@/components/web/AudioTrimmer";
 
 interface ToolPageProps {
   params: Promise<{ tool: string }>;
 }
 
-export async function generateMetadata({ params }: ToolPageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: ToolPageProps): Promise<Metadata> {
   const { tool } = await params;
 
   const toolConfigs = {
     collagemaker: {
-      title: "Collage Maker - Create Beautiful Photo Collages Online | Zafry.dev",
-      description: "Create stunning photo collages with drag & drop functionality, custom layouts, and professional export quality. Free online collage maker tool.",
+      title:
+        "Collage Maker - Create Beautiful Photo Collages Online | Zafry.dev",
+      description:
+        "Create stunning photo collages with drag & drop functionality, custom layouts, and professional export quality. Free online collage maker tool.",
       keywords: [
         "collage maker",
         "photo collage",
@@ -25,11 +30,14 @@ export async function generateMetadata({ params }: ToolPageProps): Promise<Metad
         "professional collage",
       ],
       openGraphTitle: "Collage Maker - Beautiful Photo Collages",
-      openGraphDescription: "Create professional photo collages with ease. Drag & drop photos, choose layouts, and export high-quality images.",
+      openGraphDescription:
+        "Create professional photo collages with ease. Drag & drop photos, choose layouts, and export high-quality images.",
     },
     "background-remover": {
-      title: "Background Remover - Remove Image Backgrounds with AI | Zafry.dev",
-      description: "Remove backgrounds from images using advanced AI technology. Upload any photo and get a clean cutout with transparent background instantly.",
+      title:
+        "Background Remover - Remove Image Backgrounds with AI | Zafry.dev",
+      description:
+        "Remove backgrounds from images using advanced AI technology. Upload any photo and get a clean cutout with transparent background instantly.",
       keywords: [
         "background remover",
         "remove background",
@@ -41,7 +49,8 @@ export async function generateMetadata({ params }: ToolPageProps): Promise<Metad
         "image processing",
       ],
       openGraphTitle: "AI Background Remover - Instant Results",
-      openGraphDescription: "Advanced AI-powered background removal tool. Upload images and get professional-quality cutouts with transparent backgrounds.",
+      openGraphDescription:
+        "Advanced AI-powered background removal tool. Upload images and get professional-quality cutouts with transparent backgrounds.",
     },
   };
 
@@ -92,6 +101,7 @@ export default async function ToolIdPage({ params }: ToolPageProps) {
     <div className="p-3 bg-neutral-950 flex-1 text-white">
       {tool === "collagemaker" && <CollageMaker />}
       {tool === "background-remover" && <ImageBackgroundRemover />}
+      {tool === "audio-trimmer" && <AudioTrimmer />}
     </div>
   );
 }

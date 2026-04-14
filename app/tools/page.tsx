@@ -132,6 +132,42 @@ export default function ToolsPage() {
             </div>
           </Link>
 
+          {/* Audio Trimmer Card */}
+          <Link
+            href="/tools/audio-trimmer"
+            className="group block w-full max-w-[340px] md:max-w-none bg-neutral-900 border border-neutral-800 rounded-3xl overflow-hidden hover:border-amber-500/50 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <div className="h-44 md:h-60 bg-gradient-to-br from-amber-500/10 to-yellow-500/10 flex items-center justify-center relative overflow-hidden">
+              <div className="text-7xl md:text-[110px] opacity-10 group-hover:opacity-20 transition-opacity">
+                🎵
+              </div>
+              <div className="absolute inset-0 bg-[radial-gradient(at_center,#ffffff10_0%,transparent_70%)]" />
+            </div>
+
+            <div className="p-5 md:p-8">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-8 h-8 md:w-10 md:h-10 rounded-2xl bg-amber-500 flex items-center justify-center text-black font-bold text-lg md:text-xl flex-shrink-0">
+                  AT
+                </div>
+                <h2 className="text-lg md:text-2xl font-semibold leading-tight">
+                  Audio Trimmer
+                </h2>
+              </div>
+
+              <p className="text-neutral-400 text-sm leading-snug line-clamp-3 md:line-clamp-none">
+                Upload any audio file and trim it to your desired length—quickly
+                remove unwanted parts and keep only what you need.
+              </p>
+
+              <div className="mt-5 flex items-center text-amber-400 text-sm font-medium group-hover:gap-2 transition-all">
+                Open Tool
+                <span className="text-lg ml-1 transition-transform group-hover:translate-x-1">
+                  →
+                </span>
+              </div>
+            </div>
+          </Link>
+
           {/* Coming Soon Placeholder */}
           <div className="group block w-full max-w-[340px] md:max-w-none bg-neutral-900/50 border border-neutral-800/50 rounded-3xl overflow-hidden opacity-60 cursor-not-allowed">
             <div className="h-44 md:h-60 bg-neutral-800 flex items-center justify-center relative">
