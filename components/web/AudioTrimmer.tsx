@@ -1360,7 +1360,6 @@ export default function AudioTrimmer() {
         id="audio-upload"
         ref={fileInputRef}
         type="file"
-        accept="audio/*"
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
